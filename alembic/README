@@ -1,0 +1,10 @@
+Generic single-database configuration.
+
+This directory contains Alembic database migration scripts for VoxOps.
+
+Commands:
+  alembic upgrade head     - Apply all migrations (create/update tables)
+  alembic downgrade -1     - Undo the last migration
+  alembic current          - Show current migration version
+  alembic history          - List all migration history
+  alembic revision --autogenerate -m "description"  - Create a new migration
