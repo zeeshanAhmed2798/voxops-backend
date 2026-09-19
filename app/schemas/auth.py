@@ -9,7 +9,7 @@ HOW IT WORKS:
 - Pydantic v2 raises clear validation errors automatically if input is wrong.
 """
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 # ── Login ─────────────────────────────────────────────────────────────────────
@@ -19,9 +19,9 @@ class LoginRequest(BaseModel):
     Body for POST /api/v1/auth/login
     Client sends email + password to get a JWT token.
     """
-    email: str = Field(
+    email: EmailStr = Field(
         ...,
-        description="User's email address",
+        description="User's email address — must be a valid email format",
         examples=["jane@example.com"],
     )
     password: str = Field(

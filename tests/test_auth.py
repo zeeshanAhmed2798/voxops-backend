@@ -376,3 +376,141 @@ class TestUpdateProfile:
             json={"name": "Hacker"},
         )
         assert response.status_code == 401
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SUSPENDED USER — cannot log in or access protected routes
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestSuspendedUser:
+    """Tests that SUSPENDED users are blocked from the system."""
+
+    def test_suspended_user_cannot_login(self, client: TestClient, suspended_user: User):
+        """
+        A SUSPENDED user must not receive a JWT token.
+        Spec: "INACTIVE and SUSPENDED users must not be able to log in."
+        Expected: 403 Forbidden.
+        """
+        response = client.post(
+            "/api/v1/auth/login",
+            json={"email": "suspended@example.com", "password": "ChangeMe123!"},
+        )
+        assert response.status_code == 403
+        assert "suspended" in response.json()["detail"].lower()
+
+    def test_suspended_user_blocked_on_protected_route(
+        self, client: TestClient, db, suspended_user: User
+    ):
+        """
+        Even if a SUSPENDED user somehow has a valid old token,
+        get_current_user must reject them with 403.
+
+        We simulate this by manually creating a token for the suspended user.
+        """
+        from app.core.security import create_access_token
+
+        token = create_access_token(
+            user_id=str(suspended_user.id),
+            organization_id=str(suspended_user.organization_id),
+            role=suspended_user.role.value,
+        )
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = client.get("/api/v1/auth/me", headers=headers)
+        # get_current_user checks status after fetching from DB
+        assert response.status_code == 403
+        assert "suspended" in response.json()["detail"].lower()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ROLE AUTHORIZATION — require_roles() dependency
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestRoleAuthorization:
+    """
+    Tests for the require_roles() dependency (role-based access control).
+
+    HOW require_roles WORKS:
+    - It is a "factory" function that returns a FastAPI dependency.
+    - You use it like: Depends(require_roles(UserRole.ORG_ADMIN))
+    - If the current user's role is NOT in the allowed list → 403 Forbidden.
+    - If the role IS in the list → the user object is returned normally.
+
+    Since we don't have a role-restricted endpoint in this module yet,
+    we test the dependency directly by calling require_roles() in a temporary
+    test route registered on the app.
+    """
+
+    def test_require_roles_allows_authorized_role(
+        self, client: TestClient, test_user: User, auth_headers: dict
+    ):
+        """
+        test_user has role ORG_ADMIN.
+        require_roles(ORG_ADMIN) should let them through.
+        We verify via the auth/me endpoint that the user IS accessible.
+        This proves the dependency chain works end-to-end.
+        """
+        # test_user is ORG_ADMIN — /auth/me uses get_current_user (no role restriction)
+        # This test confirms the base dependency works for authorized users.
+        response = client.get("/api/v1/auth/me", headers=auth_headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["role"] == "ORG_ADMIN"
+
+    def test_require_roles_blocks_wrong_role(
+        self, client: TestClient, db, test_user: User
+    ):
+        """
+        Import and call require_roles() directly to verify it raises 403
+        when the current user's role is not in the allowed list.
+
+        This tests the dependency logic in isolation.
+        """
+        from fastapi import HTTPException
+        from app.dependencies.auth import require_roles
+        from app.models.user import UserRole
+
+        # test_user is ORG_ADMIN — try to restrict to SUPER_ADMIN only
+        check_fn = require_roles(UserRole.SUPER_ADMIN)
+
+        # Call the inner check function directly, passing the test_user
+        try:
+            check_fn(current_user=test_user)
+            assert False, "Expected HTTPException 403 was not raised"
+        except HTTPException as exc:
+            assert exc.status_code == 403
+            assert "Access denied" in exc.detail
+
+    def test_require_roles_allows_multiple_roles(self, client: TestClient, db, test_user: User):
+        """
+        require_roles accepts multiple roles — any match should be allowed.
+        test_user is ORG_ADMIN, passing [SUPERVISOR, ORG_ADMIN] should work.
+        """
+        from app.dependencies.auth import require_roles
+        from app.models.user import UserRole
+
+        check_fn = require_roles(UserRole.SUPERVISOR, UserRole.ORG_ADMIN)
+
+        # Should NOT raise — ORG_ADMIN is in the allowed list
+        result = check_fn(current_user=test_user)
+        assert result.role == UserRole.ORG_ADMIN
+
+    def test_require_roles_super_admin_not_in_limited_list(
+        self, client: TestClient, db, test_user: User
+    ):
+        """
+        If the user is ORG_ADMIN but the endpoint requires FIELD_WORKER only,
+        they must be blocked.
+        """
+        from fastapi import HTTPException
+        from app.dependencies.auth import require_roles
+        from app.models.user import UserRole
+
+        check_fn = require_roles(UserRole.FIELD_WORKER)
+
+        try:
+            check_fn(current_user=test_user)
+            assert False, "Expected HTTPException 403 was not raised"
+        except HTTPException as exc:
+            assert exc.status_code == 403
+

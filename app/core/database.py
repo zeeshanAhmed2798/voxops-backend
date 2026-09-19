@@ -20,10 +20,16 @@ from app.core.config import settings
 # ── Engine ─────────────────────────────────────────────────────────────────
 # The engine is the core interface to the database.
 # pool_pre_ping=True checks the connection is alive before each use.
+# connect_args: hosted PostgreSQL providers (Neon, Supabase, Railway, etc.)
+#   require SSL. We detect this by checking if the host is NOT localhost.
+_is_local = "localhost" in settings.DATABASE_URL or "127.0.0.1" in settings.DATABASE_URL
+_connect_args = {} if _is_local else {"sslmode": "require"}
+
 engine = create_engine(
     settings.DATABASE_URL,
     pool_pre_ping=True,
     echo=settings.DEBUG,  # logs SQL statements when DEBUG=true — helpful for learning!
+    connect_args=_connect_args,
 )
 
 

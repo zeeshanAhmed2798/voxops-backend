@@ -18,6 +18,7 @@ HOW TO VIEW API DOCS:
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from mangum import Mangum
 
 from app.modules.auth.router import router as auth_router
 from app.modules.users.router import router as users_router
@@ -86,6 +87,12 @@ def root() -> dict:
     return {
         "message": "VoxOps Backend is running",
         "version": "1.0.0",
-        "docs": "http://127.0.0.1:8000/docs",
+        "docs": "/docs",
         "status": "ok",
     }
+
+
+# ── Vercel Serverless Handler ─────────────────────────────────────────────────
+# Mangum wraps the ASGI app so Vercel (and AWS Lambda) can invoke it.
+# When running locally with uvicorn, this line is simply ignored.
+handler = Mangum(app, lifespan="off")

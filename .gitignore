@@ -53,3 +53,6 @@ Thumbs.db
 *.log
 logs/
 test_voxops.db
+
+# Vercel local cache
+.vercel/

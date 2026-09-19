@@ -307,23 +307,23 @@ The tests use a local SQLite database (no PostgreSQL needed for tests).
 
 ## 13. Git Workflow
 
-This feature is developed on the `feature/auth-profile` branch.
+This feature is developed on the `feature/auth-profile-maryam` branch (branched from `staging`).
 
 ```powershell
-# Switch to or create the feature branch
-git checkout -b feature/auth-profile
+# Check you are on the right branch
+git branch
+# Should show: * feature/auth-profile-maryam
 
-# Stage all new files
+# Stage your changes
 git add .
 
-# Commit
-git commit -m "feat: implement authentication and user profile foundation"
+# Commit with a clear message
+git commit -m "feat: auth + user profile — EmailStr validation, suspended user tests, role auth tests"
 
-# Push to remote when ready (only when explicitly asked)
-# git push origin feature/auth-profile
+# Push to remote when ready (only when explicitly instructed)
+# git push origin feature/auth-profile-maryam
 ```
 
-> ❗ Do NOT merge to `main` without team review.
 
 ---
 

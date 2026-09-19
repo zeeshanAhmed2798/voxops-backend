@@ -134,6 +134,24 @@ def inactive_user(db: Session) -> User:
 
 
 @pytest.fixture()
+def suspended_user(db: Session) -> User:
+    """Create a SUSPENDED test user (should not be able to log in)."""
+    user = User(
+        id=uuid.uuid4(),
+        organization_id=uuid.UUID("a1b2c3d4-0000-0000-0000-000000000001"),
+        name="Suspended User",
+        email="suspended@example.com",
+        password_hash=hash_password("ChangeMe123!"),
+        role=UserRole.EMPLOYEE,
+        status=UserStatus.SUSPENDED,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@pytest.fixture()
 def auth_headers(client: TestClient, test_user: User) -> dict:
     """Log in as the test user and return Authorization headers."""
     response = client.post(
