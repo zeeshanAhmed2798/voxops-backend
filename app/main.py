@@ -30,20 +30,12 @@ from app.modules.jobs.router import router as jobs_router
 # ── Create the FastAPI App ────────────────────────────────────────────────────
 app = FastAPI(
     title="VoxOps Backend API",
-    description=(
-        # pyrefly: ignore [parse-error]
-        "## Modules Implemented
-"
-        # pyrefly: ignore [parse-error]
-        "- **Authentication**: Login, logout, current user, password change
-"
-        "- **User Profile**: View and update your profile
-"
-        "- **Departments**: Organization department directory
-"
-        "- **Jobs**: Field work, assignment, and status
-"
-    ),
+    description="""## Modules Implemented
+- **Authentication**: Login, logout, current user, password change
+- **User Profile**: View and update your profile
+- **Departments**: Organization department directory
+- **Jobs**: Field work, assignment, and status
+""",
     version="1.0.0",
 
 
