@@ -3,31 +3,31 @@
 # ============================================================
 
 # Web framework
-fastapi==0.115.0
-uvicorn[standard]==0.30.6
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
 
 # Database
-sqlalchemy==2.0.35
-psycopg[binary]==3.2.1
-alembic==1.13.3
+sqlalchemy==2.0.54
+psycopg[binary]==3.3.6
+alembic==1.20.0
 
 # Data validation
-pydantic==2.9.2
-pydantic-settings==2.5.2
-pydantic[email]==2.9.2
-email-validator==2.2.0
+pydantic==2.13.5
+pydantic-settings==2.15.0
+email-validator==2.3.0
 
 # Security — password hashing
 passlib[bcrypt]==1.7.4
-bcrypt==4.2.0
+# Passlib 1.7.4 fails with bcrypt 5 (including its backend self-check).
+bcrypt==4.0.1
 
 # Security — JWT tokens
-python-jose[cryptography]==3.3.0
+python-jose[cryptography]==3.5.0
 
 # Testing
-pytest==8.3.3
-pytest-asyncio==0.24.0
-httpx==0.27.2
+pytest==9.1.1
+pytest-asyncio==1.4.0
+httpx==0.28.1
 
 # Utilities
-python-multipart==0.0.12
+python-multipart==0.0.32

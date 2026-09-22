@@ -10,7 +10,9 @@ HOW IT WORKS:
 - Base is the parent class for all SQLAlchemy models (User, etc.)
 """
 
+# pyrefly: ignore [missing-import]
 from sqlalchemy import create_engine
+# pyrefly: ignore [missing-import]
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session
 from typing import Generator
 

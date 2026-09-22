@@ -18,6 +18,7 @@ from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.modules.users import service
 from app.schemas.user import UserResponse, UpdateProfileRequest
+from app.shared.response import BaseResponse, ok
 
 
 router = APIRouter(
@@ -28,7 +29,8 @@ router = APIRouter(
 
 @router.get(
     "/me",
-    response_model=UserResponse,
+    response_model=BaseResponse[UserResponse],
+    response_model_exclude_none=True,
     status_code=status.HTTP_200_OK,
     summary="Get my profile",
     description=(
@@ -38,14 +40,15 @@ router = APIRouter(
 )
 def get_my_profile(
     current_user: User = Depends(get_current_user),
-) -> UserResponse:
+) -> BaseResponse[UserResponse]:
     """GET /api/v1/users/me"""
-    return service.get_user_profile(current_user=current_user)
+    return ok("Profile retrieved successfully.", service.get_user_profile(current_user=current_user))
 
 
 @router.patch(
     "/me",
-    response_model=UserResponse,
+    response_model=BaseResponse[UserResponse],
+    response_model_exclude_none=True,
     status_code=status.HTTP_200_OK,
     summary="Update my profile",
     description=(
@@ -59,10 +62,11 @@ def update_my_profile(
     update_data: UpdateProfileRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> UserResponse:
+) -> BaseResponse[UserResponse]:
     """PATCH /api/v1/users/me"""
-    return service.update_user_profile(
+    profile = service.update_user_profile(
         db=db,
         current_user=current_user,
         update_data=update_data,
     )
+    return ok("Profile updated successfully.", profile)

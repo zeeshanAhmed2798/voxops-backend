@@ -9,6 +9,7 @@ HOW IT WORKS:
 - Pydantic v2 raises clear validation errors automatically if input is wrong.
 """
 
+# pyrefly: ignore [missing-import]
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -65,21 +66,4 @@ class ChangePasswordRequest(BaseModel):
         ...,
         min_length=8,
         description="New password — must be at least 8 characters",
-    )
-
-
-# ── Logout Response ───────────────────────────────────────────────────────────
-
-class LogoutResponse(BaseModel):
-    """
-    Response for POST /api/v1/auth/logout
-    Since JWTs are stateless, logout is client-side (discard the token).
-    We return a clear message explaining this.
-    """
-    message: str = Field(
-        default=(
-            "Logged out successfully. "
-            "Please discard your access token on the client side. "
-            "Server-side token revocation will be available in a future update."
-        )
     )
