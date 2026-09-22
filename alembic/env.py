@@ -20,6 +20,7 @@ import os
 import sys
 from logging.config import fileConfig
 
+# pyrefly: ignore [missing-import]
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 

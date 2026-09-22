@@ -17,6 +17,7 @@ from app.models.department import Department
 from app.models.job import Job
 from app.models.user import User, UserRole
 from app.schemas.department import DepartmentCreate, DepartmentResponse, DepartmentUpdate
+# pyrefly: ignore [missing-import]
 from app.shared.response import BaseResponse, ok
 
 
