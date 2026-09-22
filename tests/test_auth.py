@@ -29,7 +29,8 @@ class TestHealthCheck:
         response = client.get("/")
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "ok"
+        assert data["success"] is True
+        assert data["data"]["status"] == "ok"
         assert "VoxOps" in data["message"]
 
 
@@ -48,9 +49,10 @@ class TestLogin:
         )
         assert response.status_code == 200
         data = response.json()
-        assert "access_token" in data
-        assert data["token_type"] == "bearer"
-        assert len(data["access_token"]) > 10  # Token is not empty
+        assert data["success"] is True
+        assert "access_token" in data["data"]
+        assert data["data"]["token_type"] == "bearer"
+        assert len(data["data"]["access_token"]) > 10  # Token is not empty
 
     def test_login_wrong_password(self, client: TestClient, test_user: User):
         """Wrong password should return 401."""
@@ -59,7 +61,7 @@ class TestLogin:
             json={"email": "jane@example.com", "password": "WrongPassword!"},
         )
         assert response.status_code == 401
-        assert "Incorrect" in response.json()["detail"]
+        assert "Incorrect" in response.json()["message"]
 
     def test_login_wrong_email(self, client: TestClient):
         """Non-existent email should return 401 (same message — no user enumeration)."""
@@ -68,7 +70,7 @@ class TestLogin:
             json={"email": "nobody@example.com", "password": "ChangeMe123!"},
         )
         assert response.status_code == 401
-        assert "Incorrect" in response.json()["detail"]
+        assert "Incorrect" in response.json()["message"]
 
     def test_login_inactive_user(self, client: TestClient, inactive_user: User):
         """An INACTIVE user should be rejected with 403."""
@@ -77,7 +79,7 @@ class TestLogin:
             json={"email": "inactive@example.com", "password": "ChangeMe123!"},
         )
         assert response.status_code == 403
-        assert "deactivated" in response.json()["detail"].lower()
+        assert "deactivated" in response.json()["message"].lower()
 
     def test_login_missing_fields(self, client: TestClient):
         """Missing email or password should return 422 Unprocessable Entity."""
@@ -101,7 +103,7 @@ class TestAuthMe:
         """Valid JWT should return current user info."""
         response = client.get("/api/v1/auth/me", headers=auth_headers)
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert data["email"] == "jane@example.com"
         assert data["name"] == "Jane Doe"
         assert data["role"] == "ORG_ADMIN"
@@ -128,7 +130,7 @@ class TestAuthMe:
         """Response must include organization_id for multi-tenant isolation."""
         response = client.get("/api/v1/auth/me", headers=auth_headers)
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert "organization_id" in data
         assert data["organization_id"] is not None
 
@@ -147,6 +149,8 @@ class TestLogout:
         response = client.post("/api/v1/auth/logout", headers=auth_headers)
         assert response.status_code == 200
         data = response.json()
+        assert data["success"] is True
+        assert "data" not in data
         assert "message" in data
         assert "discard" in data["message"].lower()
 
@@ -185,7 +189,7 @@ class TestChangePassword:
             json={"email": "jane@example.com", "password": "NewSecurePass456!"},
         )
         assert login_response.status_code == 200
-        assert "access_token" in login_response.json()
+        assert "access_token" in login_response.json()["data"]
 
     def test_change_password_wrong_current(
         self, client: TestClient, test_user: User, auth_headers: dict
@@ -200,7 +204,7 @@ class TestChangePassword:
             headers=auth_headers,
         )
         assert response.status_code == 400
-        assert "incorrect" in response.json()["detail"].lower()
+        assert "incorrect" in response.json()["message"].lower()
 
     def test_change_password_same_as_current(
         self, client: TestClient, test_user: User, auth_headers: dict
@@ -255,7 +259,7 @@ class TestGetProfile:
         """Authenticated user should get their profile."""
         response = client.get("/api/v1/users/me", headers=auth_headers)
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert data["email"] == "jane@example.com"
         assert data["name"] == "Jane Doe"
         assert "password_hash" not in data  # CRITICAL
@@ -283,7 +287,7 @@ class TestUpdateProfile:
             headers=auth_headers,
         )
         assert response.status_code == 200
-        assert response.json()["name"] == "Jane Updated"
+        assert response.json()["data"]["name"] == "Jane Updated"
 
     def test_update_job_title(
         self, client: TestClient, test_user: User, auth_headers: dict
@@ -295,7 +299,7 @@ class TestUpdateProfile:
             headers=auth_headers,
         )
         assert response.status_code == 200
-        assert response.json()["job_title"] == "Lead Engineer"
+        assert response.json()["data"]["job_title"] == "Lead Engineer"
 
     def test_update_timezone(
         self, client: TestClient, test_user: User, auth_headers: dict
@@ -307,7 +311,7 @@ class TestUpdateProfile:
             headers=auth_headers,
         )
         assert response.status_code == 200
-        assert response.json()["timezone"] == "Asia/Karachi"
+        assert response.json()["data"]["timezone"] == "Asia/Karachi"
 
     def test_cannot_update_role(
         self, client: TestClient, test_user: User, auth_headers: dict
@@ -330,7 +334,7 @@ class TestUpdateProfile:
         # The request may succeed (role field ignored) or return 422
         # Either way, the role must not have changed to SUPER_ADMIN
         if response.status_code == 200:
-            assert response.json()["role"] == original_role, (
+            assert response.json()["data"]["role"] == original_role, (
                 "SECURITY BUG: User was able to change their own role!"
             )
 
@@ -353,7 +357,7 @@ class TestUpdateProfile:
         )
 
         if response.status_code == 200:
-            assert response.json()["organization_id"] == original_org_id, (
+            assert response.json()["data"]["organization_id"] == original_org_id, (
                 "SECURITY BUG: User was able to change their own organization_id!"
             )
 
@@ -367,7 +371,7 @@ class TestUpdateProfile:
             headers=auth_headers,
         )
         assert response.status_code == 200
-        assert response.json()["email"] == "jane@example.com"
+        assert response.json()["data"]["email"] == "jane@example.com"
 
     def test_update_profile_without_auth(self, client: TestClient):
         """Without JWT, should return 401."""

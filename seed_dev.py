@@ -3,11 +3,11 @@ seed_dev.py
 ===========
 ⚠️  DEVELOPMENT ONLY — DO NOT RUN IN PRODUCTION ⚠️
 
-This script creates a test organization ID and user in the database
+This script creates a test organization and user in the database
 so you can immediately test the login API.
 
 WHAT IT CREATES:
-  Organization (ID only — no org table yet):
+  Organization:
     Name: CoolTech Services
     ID:   a1b2c3d4-0000-0000-0000-000000000001
 
@@ -37,10 +37,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from app.core.database import SessionLocal
 from app.core.security import hash_password
 from app.models.user import User, UserRole, UserStatus
+from app.models.organization import Organization
 
 
 # ── Seed Data ─────────────────────────────────────────────────────────────────
-# Hardcoded test organization ID (placeholder — real org table is another module)
+# Stable development organization ID.
 TEST_ORG_ID = uuid.UUID("a1b2c3d4-0000-0000-0000-000000000001")
 
 TEST_USER = {
@@ -65,6 +66,17 @@ def seed() -> None:
     db = SessionLocal()
 
     try:
+        organization = db.get(Organization, TEST_ORG_ID)
+        if organization is None:
+            organization = Organization(id=TEST_ORG_ID, name="CoolTech Services")
+            db.add(organization)
+            db.commit()
+            print("✓ Created development organization: CoolTech Services")
+        elif organization.name.startswith("Organization "):
+            # The migration gives existing IDs a placeholder name.
+            organization.name = "CoolTech Services"
+            db.commit()
+
         # Check if user already exists
         existing = db.query(User).filter(User.email == TEST_USER["email"]).first()
 

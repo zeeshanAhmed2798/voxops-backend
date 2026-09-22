@@ -17,6 +17,7 @@ import uuid
 from datetime import datetime, timezone
 from enum import Enum
 
+# pyrefly: ignore [missing-import]
 from sqlalchemy import (
     String,
     Boolean,
@@ -24,7 +25,9 @@ from sqlalchemy import (
     Enum as SAEnum,
     func,
 )
+# pyrefly: ignore [missing-import]
 from sqlalchemy.dialects.postgresql import UUID
+# pyrefly: ignore [missing-import]
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base

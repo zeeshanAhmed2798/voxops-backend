@@ -15,9 +15,15 @@ IMPORTANT: Tests use SQLite, not PostgreSQL.
   - We handle this by configuring SQLAlchemy to use String for UUIDs in tests.
 """
 
+import os
 import pytest
 import uuid
 from typing import Generator
+
+# Tests replace the database dependency with SQLite, but Settings is loaded
+# while importing the app. Supply test-only values so no .env is required.
+os.environ.setdefault("DATABASE_URL", "sqlite:///./test_voxops.db")
+os.environ.setdefault("JWT_SECRET", "test-only-secret-do-not-use-in-production")
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
@@ -27,6 +33,9 @@ from app.main import app
 from app.core.database import Base, get_db
 from app.core.security import hash_password
 from app.models.user import User, UserRole, UserStatus
+from app.models.organization import Organization
+from app.models.department import Department
+from app.models.job import Job
 
 
 # ── Test Database Setup ───────────────────────────────────────────────────────
@@ -46,9 +55,9 @@ TestingSessionLocal = sessionmaker(
 
 
 # ── Create/Drop Tables ────────────────────────────────────────────────────────
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(autouse=True)
 def create_test_tables():
-    """Create all tables before tests run, drop them after."""
+    """Give each test fresh tables, including tests that exercise DB rollbacks."""
     # SQLite doesn't support PostgreSQL ENUM types natively.
     # SQLAlchemy handles this gracefully by using VARCHAR for ENUM columns in SQLite.
     Base.metadata.create_all(bind=test_engine)
@@ -59,16 +68,12 @@ def create_test_tables():
 # ── Database Session Fixture ───────────────────────────────────────────────────
 @pytest.fixture()
 def db() -> Generator[Session, None, None]:
-    """Provide a test database session that rolls back after each test."""
-    connection = test_engine.connect()
-    transaction = connection.begin()
-    session = TestingSessionLocal(bind=connection)
+    """Provide a session for the disposable per-test database."""
+    session = TestingSessionLocal()
 
     yield session
 
     session.close()
-    transaction.rollback()
-    connection.close()
 
 
 # ── Override FastAPI's get_db ─────────────────────────────────────────────────
@@ -141,5 +146,5 @@ def auth_headers(client: TestClient, test_user: User) -> dict:
         json={"email": "jane@example.com", "password": "ChangeMe123!"},
     )
     assert response.status_code == 200, f"Login failed: {response.text}"
-    token = response.json()["access_token"]
+    token = response.json()["data"]["access_token"]
     return {"Authorization": f"Bearer {token}"}

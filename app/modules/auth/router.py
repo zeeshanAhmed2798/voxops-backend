@@ -27,9 +27,9 @@ from app.schemas.auth import (
     LoginRequest,
     TokenResponse,
     ChangePasswordRequest,
-    LogoutResponse,
 )
 from app.schemas.user import UserResponse
+from app.shared.response import BaseResponse, ok
 
 
 # Create the router for auth endpoints
@@ -41,7 +41,8 @@ router = APIRouter(
 
 @router.post(
     "/login",
-    response_model=TokenResponse,
+    response_model=BaseResponse[TokenResponse],
+    response_model_exclude_none=True,
     status_code=status.HTTP_200_OK,
     summary="Login with email and password",
     description=(
@@ -53,28 +54,30 @@ router = APIRouter(
 def login(
     request: LoginRequest,
     db: Session = Depends(get_db),
-) -> TokenResponse:
+) -> BaseResponse[TokenResponse]:
     """POST /api/v1/auth/login"""
-    return service.authenticate_user(db=db, request=request)
+    return ok("Login successful.", service.authenticate_user(db=db, request=request))
 
 
 @router.get(
     "/me",
-    response_model=UserResponse,
+    response_model=BaseResponse[UserResponse],
+    response_model_exclude_none=True,
     status_code=status.HTTP_200_OK,
     summary="Get current authenticated user",
     description="Returns the profile of the currently authenticated user based on the JWT token.",
 )
 def get_me(
     current_user: User = Depends(get_current_user),
-) -> UserResponse:
+) -> BaseResponse[UserResponse]:
     """GET /api/v1/auth/me — requires Authorization: Bearer <token>"""
-    return UserResponse.model_validate(current_user)
+    return ok("Current user retrieved successfully.", UserResponse.model_validate(current_user))
 
 
 @router.post(
     "/logout",
-    response_model=LogoutResponse,
+    response_model=BaseResponse[None],
+    response_model_exclude_none=True,
     status_code=status.HTTP_200_OK,
     summary="Logout (client-side token discard)",
     description=(
@@ -86,13 +89,15 @@ def get_me(
 )
 def logout(
     current_user: User = Depends(get_current_user),
-) -> LogoutResponse:
+) -> BaseResponse[None]:
     """POST /api/v1/auth/logout — requires valid JWT"""
-    return LogoutResponse()
+    return ok("Logged out. Discard the access token on the client.")
 
 
 @router.post(
     "/change-password",
+    response_model=BaseResponse[None],
+    response_model_exclude_none=True,
     status_code=status.HTTP_200_OK,
     summary="Change own password",
     description=(
@@ -105,7 +110,7 @@ def change_password(
     request: ChangePasswordRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> dict:
+) -> BaseResponse[None]:
     """POST /api/v1/auth/change-password — requires Authorization: Bearer <token>"""
     service.change_password(
         db=db,
@@ -113,4 +118,4 @@ def change_password(
         current_password=request.current_password,
         new_password=request.new_password,
     )
-    return {"message": "Password changed successfully."}
+    return ok("Password changed successfully.")
