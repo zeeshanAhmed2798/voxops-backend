@@ -31,6 +31,7 @@ from app.modules.jobs.router import router as jobs_router
 app = FastAPI(
     title="VoxOps Backend API",
     description=(
+        # pyrefly: ignore [parse-error]
         "## Modules Implemented
 "
         # pyrefly: ignore [parse-error]
