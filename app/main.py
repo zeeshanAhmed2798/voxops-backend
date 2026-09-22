@@ -31,28 +31,20 @@ from app.modules.jobs.router import router as jobs_router
 app = FastAPI(
     title="VoxOps Backend API",
     description=(
-        "AI Workplace Assistant — Backend API\n\n"
-        "## Authentication\n"
-        "Most endpoints require a JWT bearer token.\n"
-        "1. Use `POST /api/v1/auth/login` with your credentials.\n"
-        "2. Copy `data.access_token` from the response.\n"
-        "3. Click **Authorize** in Swagger and paste the token.\n\n"
-        "## Modules Implemented\n"
-        "- **Authentication**: Login, logout, current user, password change\n"
-        "- **User Profile**: View and update your profile\n"
-        "- **Departments**: Organization department directory\n"
-        "- **Jobs**: Field work, assignment, and status\n\n"
-        "## Scope Note\n"
-        "Service reports, activity, request routing, AI, and Knowledge Base are under development."
+        "## Modules Implemented
+"
+        "- **Authentication**: Login, logout, current user, password change
+"
+        "- **User Profile**: View and update your profile
+"
+        "- **Departments**: Organization department directory
+"
+        "- **Jobs**: Field work, assignment, and status
+"
     ),
     version="1.0.0",
-    contact={
-        "name": "VoxOps Team",
-        "email": "team@voxops.example.com",
-    },
-    license_info={
-        "name": "Private — Internal Use Only",
-    },
+
+
 )
 
 register_exception_handlers(app)
