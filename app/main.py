@@ -33,6 +33,7 @@ app = FastAPI(
     description=(
         "## Modules Implemented
 "
+        # pyrefly: ignore [parse-error]
         "- **Authentication**: Login, logout, current user, password change
 "
         "- **User Profile**: View and update your profile
