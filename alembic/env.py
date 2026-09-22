@@ -34,6 +34,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.core.config import settings      # Load .env variables
 from app.core.database import Base        # SQLAlchemy metadata
 from app.models.user import User          # noqa: F401 — imported for side effects (registers model)
+from app.models.organization import Organization  # noqa: F401
+from app.models.department import Department  # noqa: F401
+from app.models.job import Job  # noqa: F401
 
 
 # ── Alembic Config ─────────────────────────────────────────────────────────

@@ -1,7 +1,56 @@
-# VoxOps Backend — Authentication & User Profile
+# VoxOps Backend — Authentication, Departments & Jobs
+
+**Current module guide:** [Phase 1: Departments and Jobs](docs/phase-1-jobs-departments.md) explains the frontend relationship, table keys, endpoints, and the order to try them.
 
 > AI Workplace Assistant — Backend API Foundation  
-> Module: Authentication + User Profile + Security Foundation
+> Modules: Authentication, User Profile, Departments, and Jobs
+
+---
+
+## Quick start on this computer (PowerShell)
+
+Run these commands from `C:\voxops-backend`. PostgreSQL 18 is already running here on `localhost:5432`, and `.venv` already has the project packages installed.
+
+1. Create the database (enter the PostgreSQL `postgres` password when prompted):
+
+   ```powershell
+   & 'C:\Program Files\PostgreSQL\18\bin\psql.exe' -h localhost -U postgres -d postgres -c 'CREATE DATABASE voxops;'
+   ```
+
+   If it says the database already exists, continue to step 2.
+
+2. Create your private configuration file, then edit it:
+
+   ```powershell
+   Copy-Item .env.example .env
+   notepad .env
+   ```
+
+   Replace `yourpassword` in `DATABASE_URL` with the PostgreSQL password. Replace `JWT_SECRET` with a random value from:
+
+   ```powershell
+   .\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_hex(32))"
+   ```
+
+   Keep `.env` on your computer; it is ignored by Git. If the database password contains `@`, `:`, `/`, or other URL punctuation, URL-encode it in `DATABASE_URL`.
+
+3. Create the tables, add the development user, and start the API:
+
+   ```powershell
+   .\.venv\Scripts\python.exe -m alembic upgrade head
+   .\.venv\Scripts\python.exe seed_dev.py
+   .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+   ```
+
+4. Open `http://127.0.0.1:8000/docs`. The development login is `jane@example.com` / `ChangeMe123!`. Stop the server with Ctrl+C.
+
+To run tests without PostgreSQL or `.env`: `.\.venv\Scripts\python.exe -m pytest tests -q`.
+
+### When a teammate pulls the code
+
+Git includes the migration files and `.env.example`, but it does not include your local PostgreSQL database or private `.env`. The simplest development setup is for each teammate to install PostgreSQL locally, create a `voxops` database, copy `.env.example` to `.env` with their own password and JWT secret, install `requirements.txt` into their own `.venv`, and run `alembic upgrade head` followed by `seed_dev.py`. Everyone then has the same schema and sample user, but separate data.
+
+To work with **the same data**, use a team-managed PostgreSQL server reachable by everyone. Each teammate puts that server's connection URL in their own `.env`; do not commit credentials. Run migrations on that shared database once per schema change. Pulling code alone cannot copy database records or connect to a database running only on someone else's `localhost`.
 
 ---
 
@@ -36,8 +85,10 @@ It implements:
 - ✅ Role-based authorization foundation
 - ✅ Multi-tenant organization isolation
 - ✅ User profile view and update
+- ✅ Department directory and admin management
+- ✅ Field Jobs with assignment, filters, and status changes
 
-It does **NOT** implement other modules (Tickets, AI, Knowledge Base, etc.) — those are other team members' responsibility.
+Service reports, activity, request routing, AI, and Knowledge Base are not implemented yet. See the Phase 1 guide for the Jobs and Departments boundary.
 
 ---
 
@@ -47,7 +98,7 @@ Before starting, you need:
 
 | Tool | Version | Check |
 |---|---|---|
-| Python | 3.11 or higher | `python --version` |
+| Python | 3.11 or higher (3.14 verified) | `python --version` |
 | PostgreSQL | 14 or higher | `psql --version` |
 | pip | Latest | `pip --version` |
 | Git | Any | `git --version` |
@@ -103,25 +154,28 @@ cd C:\path\to\your\project\backend
 A virtual environment keeps your project's packages separate from other projects.
 
 ```powershell
-python -m venv venv
+python -m venv .venv
 ```
+
+If `python` resolves to the WindowsApps alias and will not start, use your installed Python executable. On this machine it is `C:\Users\Dell\AppData\Local\Python\pythoncore-3.14-64\python.exe`. If `.venv` already exists, skip this step.
 
 ### Step 3 — Activate the virtual environment
 
 **Windows (PowerShell):**
 ```powershell
-venv\Scripts\activate
+.\.venv\Scripts\Activate.ps1
 ```
 
-You'll see `(venv)` at the start of your terminal prompt — that means it's active.
+You'll see `(.venv)` at the start of your terminal prompt. If PowerShell blocks activation, use the `.\.venv\Scripts\python.exe -m ...` form shown below instead.
 
 ### Step 4 — Install all dependencies
 
 ```powershell
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
+python -m pip check
 ```
 
-This installs FastAPI, SQLAlchemy, Alembic, bcrypt, JWT libraries, etc.
+This installs the dependency versions verified together on Python 3.14. Use the same virtual environment for installation, tests, migrations, and server startup. If the repo already has both `venv` and `.venv`, choose one; they are separate environments with separate packages. The requirements constrain bcrypt to the version tested with Passlib.
 
 ---
 
@@ -182,19 +236,19 @@ Alembic manages your database schema. Think of migrations like a version history
 ### Step 8 — Apply the migrations (create the users table)
 
 ```powershell
-alembic upgrade head
+python -m alembic upgrade head
 ```
 
 This creates the `users` table in your PostgreSQL database.
 
 **To undo the last migration:**
 ```powershell
-alembic downgrade -1
+python -m alembic downgrade -1
 ```
 
 **To check current migration status:**
 ```powershell
-alembic current
+python -m alembic current
 ```
 
 ---
@@ -225,7 +279,7 @@ This creates a test user you can log in with:
 ### Step 10 — Run FastAPI with auto-reload
 
 ```powershell
-uvicorn app.main:app --reload
+python -m uvicorn app.main:app --reload
 ```
 
 You should see:
@@ -249,6 +303,13 @@ The `--reload` flag means the server restarts automatically whenever you edit a 
 | POST | `/api/v1/auth/change-password` | Yes | Change own password |
 | GET | `/api/v1/users/me` | Yes | Get own profile |
 | PATCH | `/api/v1/users/me` | Yes | Update own profile |
+| GET/POST | `/api/v1/departments` | Yes | List/create departments |
+| GET/PUT/DELETE | `/api/v1/departments/{id}` | Yes | Read/update/delete a department |
+| GET/POST | `/api/v1/jobs` | Yes | List/create Jobs |
+| GET/PUT | `/api/v1/jobs/{id}` | Yes | Read/update a Job by UUID |
+| PATCH | `/api/v1/jobs/{id}/status` | Yes | Advance a Job's status |
+
+All responses have `success` and `message`; `data` is present only when needed. See the [Phase 1 guide](docs/phase-1-jobs-departments.md) for permissions, field explanations, and error mapping.
 
 ---
 
@@ -275,7 +336,7 @@ You'll see all endpoints listed interactively.
 }
 ```
 4. Click **Execute**
-5. Copy the `access_token` from the response
+5. Copy `data.access_token` from the response
 
 ### Step 13 — Authorize in Swagger
 
@@ -296,12 +357,12 @@ Now all protected endpoints will include your token automatically.
 ## 12. Running Automated Tests
 
 ```powershell
-pytest tests/ -v
+python -m pytest tests/ -v
 ```
 
 Expected output: all tests should show `PASSED`.
 
-The tests use a local SQLite database (no PostgreSQL needed for tests).
+The tests use a local SQLite database and test-only configuration (no PostgreSQL or `.env` needed for tests). Running the server, migrations, and seed script still requires `.env` and a running PostgreSQL database.
 
 ---
 
