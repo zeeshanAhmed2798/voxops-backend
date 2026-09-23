@@ -33,26 +33,18 @@ def upgrade() -> None:
     This runs when you do: alembic upgrade head
     """
 
-    # Create the UserRole enum type in PostgreSQL
-    userrole_enum = postgresql.ENUM(
-        "SUPER_ADMIN",
-        "ORG_ADMIN",
-        "SUPERVISOR",
-        "DEPARTMENT_AGENT",
-        "FIELD_WORKER",
-        "EMPLOYEE",
-        name="userrole",
-    )
-    userrole_enum.create(op.get_bind(), checkfirst=True)
-
-    # Create the UserStatus enum type in PostgreSQL
-    userstatus_enum = postgresql.ENUM(
-        "ACTIVE",
-        "INACTIVE",
-        "SUSPENDED",
-        name="userstatus",
-    )
-    userstatus_enum.create(op.get_bind(), checkfirst=True)
+    # Create enums idempotently in PostgreSQL
+    op.execute(sa.text("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'userrole') THEN
+                CREATE TYPE userrole AS ENUM ('SUPER_ADMIN', 'ORG_ADMIN', 'SUPERVISOR', 'DEPARTMENT_AGENT', 'FIELD_WORKER', 'EMPLOYEE');
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'userstatus') THEN
+                CREATE TYPE userstatus AS ENUM ('ACTIVE', 'INACTIVE', 'SUSPENDED');
+            END IF;
+        END $$;
+    """))
 
     # Create the 'users' table
     op.create_table(
@@ -109,7 +101,7 @@ def upgrade() -> None:
         # ── Role & Status ─────────────────────────────────────────────────
         sa.Column(
             "role",
-            sa.Enum(
+            postgresql.ENUM(
                 "SUPER_ADMIN",
                 "ORG_ADMIN",
                 "SUPERVISOR",
@@ -117,7 +109,7 @@ def upgrade() -> None:
                 "FIELD_WORKER",
                 "EMPLOYEE",
                 name="userrole",
-                create_type=False,  # Already created above
+                create_type=False,
             ),
             nullable=False,
             server_default="EMPLOYEE",
@@ -125,12 +117,12 @@ def upgrade() -> None:
         ),
         sa.Column(
             "status",
-            sa.Enum(
+            postgresql.ENUM(
                 "ACTIVE",
                 "INACTIVE",
                 "SUSPENDED",
                 name="userstatus",
-                create_type=False,  # Already created above
+                create_type=False,
             ),
             nullable=False,
             server_default="ACTIVE",
