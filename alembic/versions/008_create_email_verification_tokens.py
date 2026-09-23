@@ -29,13 +29,9 @@ def upgrade() -> None:
     )
     op.create_index('ix_email_verification_tokens_user_id', 'email_verification_tokens', ['user_id'])
     op.create_index('ix_email_verification_tokens_token', 'email_verification_tokens', ['token'])
-    
-    # Add is_email_verified to users
-    op.add_column('users', sa.Column('is_email_verified', sa.Boolean(), server_default=sa.text('false'), nullable=False))
 
 
 def downgrade() -> None:
-    op.drop_column('users', 'is_email_verified')
     op.drop_index('ix_email_verification_tokens_token', table_name='email_verification_tokens')
     op.drop_index('ix_email_verification_tokens_user_id', table_name='email_verification_tokens')
     op.drop_table('email_verification_tokens')
