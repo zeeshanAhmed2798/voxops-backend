@@ -215,13 +215,13 @@ def upgrade() -> None:
                existing_nullable=False,
                existing_server_default=sa.text('false'))
     op.alter_column('users', 'role',
-               existing_type=postgresql.ENUM('SUPER_ADMIN', 'ORG_ADMIN', 'SUPERVISOR', 'DEPARTMENT_AGENT', 'FIELD_WORKER', 'EMPLOYEE', name='userrole'),
+               existing_type=postgresql.ENUM('SUPER_ADMIN', 'ORG_ADMIN', 'SUPERVISOR', 'DEPARTMENT_AGENT', 'FIELD_WORKER', 'EMPLOYEE', name='userrole', create_type=False),
                comment="User's role — controls what they can access",
                existing_comment='User role',
                existing_nullable=False,
                existing_server_default=sa.text("'EMPLOYEE'::userrole"))
     op.alter_column('users', 'status',
-               existing_type=postgresql.ENUM('ACTIVE', 'INACTIVE', 'SUSPENDED', name='userstatus'),
+               existing_type=postgresql.ENUM('ACTIVE', 'INACTIVE', 'SUSPENDED', name='userstatus', create_type=False),
                comment='Account status — only ACTIVE users can log in',
                existing_comment='Account status',
                existing_nullable=False,
@@ -294,13 +294,13 @@ def downgrade() -> None:
                existing_comment="e.g. 'Senior Support Agent'",
                existing_nullable=True)
     op.alter_column('users', 'status',
-               existing_type=postgresql.ENUM('ACTIVE', 'INACTIVE', 'SUSPENDED', name='userstatus'),
+               existing_type=postgresql.ENUM('ACTIVE', 'INACTIVE', 'SUSPENDED', name='userstatus', create_type=False),
                comment='Account status',
                existing_comment='Account status — only ACTIVE users can log in',
                existing_nullable=False,
                existing_server_default=sa.text("'ACTIVE'::userstatus"))
     op.alter_column('users', 'role',
-               existing_type=postgresql.ENUM('SUPER_ADMIN', 'ORG_ADMIN', 'SUPERVISOR', 'DEPARTMENT_AGENT', 'FIELD_WORKER', 'EMPLOYEE', name='userrole'),
+               existing_type=postgresql.ENUM('SUPER_ADMIN', 'ORG_ADMIN', 'SUPERVISOR', 'DEPARTMENT_AGENT', 'FIELD_WORKER', 'EMPLOYEE', name='userrole', create_type=False),
                comment='User role',
                existing_comment="User's role — controls what they can access",
                existing_nullable=False,
