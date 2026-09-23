@@ -1,386 +1,437 @@
-# VoxOps Backend — Authentication & User Profile
+# VoxOps Backend API
 
-> AI Workplace Assistant — Backend API Foundation  
-> Module: Authentication + User Profile + Security Foundation
+**AI Workplace & Field Operations Assistant — FastAPI Monolith**
 
----
-
-## Table of Contents
-
-1. [What This Is](#1-what-this-is)
-2. [Requirements](#2-requirements)
-3. [Project Structure](#3-project-structure)
-4. [Step-by-Step Setup](#4-step-by-step-setup)
-5. [Environment Variables](#5-environment-variables)
-6. [PostgreSQL Setup](#6-postgresql-setup)
-7. [Database Migrations](#7-database-migrations)
-8. [Create Test User](#8-create-test-user)
-9. [Start the Server](#9-start-the-server)
-10. [API Endpoints](#10-api-endpoints)
-11. [Testing in Swagger](#11-testing-in-swagger)
-12. [Running Automated Tests](#12-running-automated-tests)
-13. [Git Workflow](#13-git-workflow)
-14. [For Other Team Members](#14-for-other-team-members)
+> Production-ready multi-tenant B2B backend with JWT authentication, role-based access control, and a full Knowledge Base module.
 
 ---
 
-## 1. What This Is
+## Tech Stack
 
-This is the **backend foundation** for VoxOps.
-
-It implements:
-- ✅ User authentication (login with email + password)
-- ✅ JWT (JSON Web Token) security
-- ✅ Password hashing (bcrypt — secure)
-- ✅ Current-user dependency (reusable by all team modules)
-- ✅ Role-based authorization foundation
-- ✅ Multi-tenant organization isolation
-- ✅ User profile view and update
-
-It does **NOT** implement other modules (Tickets, AI, Knowledge Base, etc.) — those are other team members' responsibility.
+| Layer | Technology |
+|---|---|
+| Framework | FastAPI 0.115 |
+| Database | PostgreSQL (psycopg3) |
+| ORM | SQLAlchemy 2.0 (sync) |
+| Migrations | Alembic |
+| Validation | Pydantic v2 |
+| Auth | JWT (python-jose) + bcrypt (passlib) |
+| Deployment | Uvicorn + Mangum (Vercel/Lambda) |
 
 ---
 
-## 2. Requirements
-
-Before starting, you need:
-
-| Tool | Version | Check |
-|---|---|---|
-| Python | 3.11 or higher | `python --version` |
-| PostgreSQL | 14 or higher | `psql --version` |
-| pip | Latest | `pip --version` |
-| Git | Any | `git --version` |
-
----
-
-## 3. Project Structure
+## Project Structure
 
 ```
 backend/
 ├── app/
-│   ├── main.py              ← FastAPI app entry point
 │   ├── core/
-│   │   ├── config.py        ← Reads .env settings
-│   │   ├── database.py      ← SQLAlchemy database setup
-│   │   └── security.py      ← Password hashing + JWT
-│   ├── models/
-│   │   └── user.py          ← User database model + enums
-│   ├── schemas/
-│   │   ├── auth.py          ← Login/token schemas
-│   │   └── user.py          ← User profile schemas
+│   │   ├── config.py       # Settings via pydantic-settings (.env loading)
+│   │   ├── database.py     # SQLAlchemy engine, session, Base
+│   │   ├── security.py     # Password hashing, JWT creation, token helpers
+│   │   └── types.py        # GUID type for cross-DB UUID compatibility
 │   ├── dependencies/
-│   │   └── auth.py          ← get_current_user + require_roles
-│   └── modules/
-│       ├── auth/            ← Login, /me, logout, change-password
-│       └── users/           ← GET/PATCH /users/me
-├── alembic/                 ← Database migrations
-│   └── versions/
-│       └── 001_create_users.py
-├── tests/
-│   ├── conftest.py          ← Test fixtures
-│   └── test_auth.py         ← Automated tests
-├── seed_dev.py              ← Create test user (dev only!)
-├── alembic.ini              ← Alembic config
-├── requirements.txt         ← Python dependencies
-├── .env.example             ← Environment template
-├── .gitignore               ← Keeps .env out of git
-└── README.md                ← You are here
+│   │   └── auth.py         # get_current_user, require_roles, require_admin, get_current_org
+│   ├── models/
+│   │   ├── organization.py         # Organization table
+│   │   ├── user.py                 # User table (with UserRole, UserStatus enums)
+│   │   ├── refresh_token.py        # Active sessions (refresh tokens)
+│   │   ├── password_reset_token.py # One-time password reset tokens
+│   │   ├── invite_token.py         # Admin invite tokens for new members
+│   │   └── knowledge_base.py       # Knowledge Base documents
+│   ├── schemas/
+│   │   ├── auth.py          # Register, Login, Refresh, Invite, Reset schemas
+│   │   ├── user.py          # UserResponse, UpdateProfileRequest
+│   │   ├── organization.py  # OrganizationResponse
+│   │   └── knowledge_base.py # KBDocumentCreate/Update/Response
+│   ├── modules/
+│   │   ├── auth/
+│   │   │   ├── router.py    # All 10 auth endpoints
+│   │   │   └── service.py   # Auth business logic
+│   │   ├── users/
+│   │   │   ├── router.py    # GET/PATCH /users/me
+│   │   │   └── service.py   # Profile logic
+│   │   └── knowledge_base/
+│   │       ├── router.py    # 5 KB endpoints
+│   │       └── service.py   # KB business logic with org scoping
+│   └── main.py              # App factory, CORS, router registration
+├── alembic/
+│   ├── versions/
+│   │   ├── 001_create_users.py
+│   │   ├── 002_create_organizations.py
+│   │   ├── 003_add_org_fk_and_is_email_verified.py
+│   │   ├── 004_create_refresh_tokens.py
+│   │   ├── 005_create_password_reset_tokens.py
+│   │   ├── 006_create_invite_tokens.py
+│   │   └── 007_create_knowledge_base_documents.py
+│   └── env.py
+├── .env                     # Local dev env vars (not committed)
+├── .env.example             # Template for env vars
+├── requirements.txt
+├── seed_dev.py              # Demo data seeder
+└── alembic.ini
 ```
 
 ---
 
-## 4. Step-by-Step Setup
+## Prerequisites
 
-### Step 1 — Open a terminal and go to the backend directory
+- Python 3.11+
+- PostgreSQL 14+
+- A virtual environment (recommended)
 
-```powershell
-cd C:\path\to\your\project\backend
-```
+---
 
-### Step 2 — Create a Python virtual environment
+## Local Setup
 
-A virtual environment keeps your project's packages separate from other projects.
+### 1. Clone and create virtual environment
 
-```powershell
+```bash
+cd backend
 python -m venv venv
-```
 
-### Step 3 — Activate the virtual environment
-
-**Windows (PowerShell):**
-```powershell
+# Windows
 venv\Scripts\activate
+
+# macOS/Linux
+source venv/bin/activate
 ```
 
-You'll see `(venv)` at the start of your terminal prompt — that means it's active.
+### 2. Install dependencies
 
-### Step 4 — Install all dependencies
-
-```powershell
+```bash
 pip install -r requirements.txt
 ```
 
-This installs FastAPI, SQLAlchemy, Alembic, bcrypt, JWT libraries, etc.
+### 3. Configure environment
 
----
-
-## 5. Environment Variables
-
-### Step 5 — Copy the template
-
-```powershell
-copy .env.example .env
+```bash
+cp .env.example .env
 ```
 
-### Step 6 — Edit the .env file
-
-Open `.env` in any text editor and fill in your real values:
+Edit `.env` and set your PostgreSQL credentials:
 
 ```env
 DATABASE_URL=postgresql+psycopg://postgres:yourpassword@localhost:5432/voxops
-JWT_SECRET=your-long-random-secret-here
+JWT_SECRET=your-long-random-secret-at-least-64-chars
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
+REFRESH_TOKEN_EXPIRE_DAYS=7
+FRONTEND_ORIGIN=https://voxops-web.vercel.app
 APP_ENV=development
 DEBUG=true
 ```
 
-**How to generate a secure JWT_SECRET:**
-```powershell
-python -c "import secrets; print(secrets.token_hex(32))"
+**Generate a strong JWT secret:**
+```bash
+python -c "import secrets; print(secrets.token_hex(64))"
 ```
-Copy the output and use it as your JWT_SECRET.
 
-> ⚠️ **NEVER commit your .env file to Git.** It contains secrets. The `.gitignore` already excludes it.
+### 4. Create the PostgreSQL database
 
----
+```bash
+# Connect to PostgreSQL
+psql -U postgres
 
-## 6. PostgreSQL Setup
-
-### Step 7 — Create the database
-
-Open pgAdmin or psql and run:
-
-```sql
+# Create the database
 CREATE DATABASE voxops;
+\q
 ```
 
-Or from the terminal:
-```powershell
-psql -U postgres -c "CREATE DATABASE voxops;"
-```
+### 5. Run migrations
 
-Make sure the username and password in your `.env` DATABASE_URL match your PostgreSQL setup.
-
----
-
-## 7. Database Migrations
-
-Alembic manages your database schema. Think of migrations like a version history for your database tables.
-
-### Step 8 — Apply the migrations (create the users table)
-
-```powershell
+```bash
 alembic upgrade head
 ```
 
-This creates the `users` table in your PostgreSQL database.
+This applies all 7 migrations in order, creating all tables.
 
-**To undo the last migration:**
-```powershell
-alembic downgrade -1
-```
+### 6. (Optional) Seed demo data
 
-**To check current migration status:**
-```powershell
-alembic current
-```
-
----
-
-## 8. Create Test User
-
-### Step 9 — Seed the development database
-
-```powershell
+```bash
 python seed_dev.py
 ```
 
-This creates a test user you can log in with:
+Creates demo org, admin user, member user, and a sample KB document.
 
-| Field | Value |
-|---|---|
-| Email | jane@example.com |
-| Password | ChangeMe123! |
-| Role | ORG_ADMIN |
-| Status | ACTIVE |
+**Demo credentials:**
+- Admin: `admin@acme.com` / `AdminPass123!`
+- Member: `bob@acme.com` / `MemberPass123!`
 
-> ⚠️ This script is for **development only**. Change the password after first login using the change-password API.
+### 7. Start the development server
 
----
-
-## 9. Start the Server
-
-### Step 10 — Run FastAPI with auto-reload
-
-```powershell
+```bash
 uvicorn app.main:app --reload
 ```
 
-You should see:
-```
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process
-```
-
-The `--reload` flag means the server restarts automatically whenever you edit a file.
+The API runs at: **http://127.0.0.1:8000**
 
 ---
 
-## 10. API Endpoints
+## API Documentation
 
-| Method | URL | Auth Required | Description |
-|---|---|---|---|
-| GET | `/` | No | Health check |
-| POST | `/api/v1/auth/login` | No | Login, get JWT token |
-| GET | `/api/v1/auth/me` | Yes | Get current user |
-| POST | `/api/v1/auth/logout` | Yes | Logout (client-side) |
-| POST | `/api/v1/auth/change-password` | Yes | Change own password |
-| GET | `/api/v1/users/me` | Yes | Get own profile |
-| PATCH | `/api/v1/users/me` | Yes | Update own profile |
+Once the server is running:
+
+- **Swagger UI**: http://127.0.0.1:8000/docs — interactive, try every endpoint
+- **ReDoc**: http://127.0.0.1:8000/redoc — clean reference docs
+- **Health Check**: http://127.0.0.1:8000/health
 
 ---
 
-## 11. Testing in Swagger
+## API Endpoints
 
-### Step 11 — Open Swagger
+### Health
 
-With the server running, go to:
-```
-http://127.0.0.1:8000/docs
-```
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/` | None | Root health check |
+| GET | `/health` | None | Dedicated health check |
 
-You'll see all endpoints listed interactively.
+### Authentication (`/api/v1/auth/`)
 
-### Step 12 — Test Login
+| Method | Endpoint | Auth | Role | Description |
+|--------|----------|------|------|-------------|
+| POST | `/auth/register` | None | — | Register new org + admin (first-time setup) |
+| POST | `/auth/login` | None | — | Login → access + refresh token pair |
+| POST | `/auth/refresh` | None | — | Get new access token from refresh token |
+| POST | `/auth/logout` | ✅ JWT | Any | Invalidate refresh token (true revocation) |
+| GET | `/auth/me` | ✅ JWT | Any | Get current user profile |
+| POST | `/auth/change-password` | ✅ JWT | Any | Change own password |
+| POST | `/auth/forgot-password` | None | — | Request password reset token |
+| POST | `/auth/reset-password` | None | — | Set new password using reset token |
+| POST | `/auth/invite-member` | ✅ JWT | **ADMIN** | Generate invite token for a new member |
+| POST | `/auth/register-member` | None | — | Join org using invite token |
 
-1. Click `POST /api/v1/auth/login`
-2. Click **Try it out**
-3. Enter:
-```json
+### User Profile (`/api/v1/users/`)
+
+| Method | Endpoint | Auth | Role | Description |
+|--------|----------|------|------|-------------|
+| GET | `/users/me` | ✅ JWT | Any | Get own profile |
+| PATCH | `/users/me` | ✅ JWT | Any | Update own profile (name, phone, etc.) |
+
+### Knowledge Base (`/api/v1/knowledge-base/`)
+
+| Method | Endpoint | Auth | Role | Description |
+|--------|----------|------|------|-------------|
+| GET | `/knowledge-base` | ✅ JWT | Any member | List documents (admins see drafts too) |
+| GET | `/knowledge-base/{id}` | ✅ JWT | Any member | View full document content |
+| POST | `/knowledge-base` | ✅ JWT | **ADMIN** | Create a document |
+| PUT | `/knowledge-base/{id}` | ✅ JWT | **ADMIN** | Update a document |
+| DELETE | `/knowledge-base/{id}` | ✅ JWT | **ADMIN** | Delete a document |
+
+---
+
+## Authentication Flow
+
+### 1. Register (new organization)
+```http
+POST /api/v1/auth/register
+Content-Type: application/json
+
 {
-  "email": "jane@example.com",
-  "password": "ChangeMe123!"
+  "org_name": "Acme Corporation",
+  "full_name": "Jane Doe",
+  "email": "jane@acme.com",
+  "password": "SecurePass123"
 }
 ```
-4. Click **Execute**
-5. Copy the `access_token` from the response
 
-### Step 13 — Authorize in Swagger
+Returns `access_token` + `refresh_token`. Store the refresh token securely.
 
-1. Click the **Authorize 🔓** button (top right of Swagger)
-2. In the "HTTPBearer" box, paste your token (just the token, not "Bearer")
-3. Click **Authorize** → **Close**
+### 2. Login
+```http
+POST /api/v1/auth/login
+Content-Type: application/json
 
-Now all protected endpoints will include your token automatically.
-
-### Step 14 — Test Protected Endpoints
-
-- `GET /api/v1/auth/me` → should return your user profile
-- `GET /api/v1/users/me` → same profile
-- `PATCH /api/v1/users/me` → update your name/job_title/timezone/phone
-
----
-
-## 12. Running Automated Tests
-
-```powershell
-pytest tests/ -v
+{
+  "email": "jane@acme.com",
+  "password": "SecurePass123"
+}
 ```
 
-Expected output: all tests should show `PASSED`.
-
-The tests use a local SQLite database (no PostgreSQL needed for tests).
-
----
-
-## 13. Git Workflow
-
-This feature is developed on the `feature/auth-profile-maryam` branch (branched from `staging`).
-
-```powershell
-# Check you are on the right branch
-git branch
-# Should show: * feature/auth-profile-maryam
-
-# Stage your changes
-git add .
-
-# Commit with a clear message
-git commit -m "feat: auth + user profile — EmailStr validation, suspended user tests, role auth tests"
-
-# Push to remote when ready (only when explicitly instructed)
-# git push origin feature/auth-profile-maryam
+### 3. Use access token
+```http
+GET /api/v1/auth/me
+Authorization: Bearer <access_token>
 ```
 
+### 4. Refresh when expired
+```http
+POST /api/v1/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "<your_refresh_token>"
+}
+```
+
+Returns a new `access_token` + rotated `refresh_token`.
+
+### 5. Logout
+```http
+POST /api/v1/auth/logout
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "refresh_token": "<your_refresh_token>"
+}
+```
+
+The refresh token is deleted from the DB — future refresh requests with this token will fail.
 
 ---
 
-## 14. For Other Team Members
+## Invite Member Flow
 
-### Importing shared utilities
+### Admin invites someone
+```http
+POST /api/v1/auth/invite-member
+Authorization: Bearer <admin_access_token>
+Content-Type: application/json
+
+{
+  "email": "newemployee@acme.com",
+  "full_name": "John Smith",
+  "role": "EMPLOYEE"
+}
+```
+
+Returns an `invite_token` (also logged to server console). In production, this token would be emailed.
+
+### Invitee registers
+```http
+POST /api/v1/auth/register-member
+Content-Type: application/json
+
+{
+  "invite_token": "<invite_token_from_admin>",
+  "full_name": "John Smith",
+  "password": "MyPassword456"
+}
+```
+
+Returns `access_token` + `refresh_token` — immediately logged in.
+
+---
+
+## Password Reset Flow
+
+### Step 1: Request reset
+```http
+POST /api/v1/auth/forgot-password
+Content-Type: application/json
+
+{
+  "email": "jane@acme.com"
+}
+```
+
+In dev mode (`APP_ENV=development`), the `reset_token` is returned in the response.
+In production, it would be emailed. The token is also printed to the server console.
+
+### Step 2: Set new password
+```http
+POST /api/v1/auth/reset-password
+Content-Type: application/json
+
+{
+  "token": "<reset_token>",
+  "new_password": "NewSecurePass789"
+}
+```
+
+---
+
+## Role-Based Access Control (RBAC)
+
+### Roles (from most to least privileged)
+
+| Role | Description |
+|------|-------------|
+| `SUPER_ADMIN` | Platform-wide access (internal use) |
+| `ORG_ADMIN` | Full access within their organization |
+| `SUPERVISOR` | Manages teams within an org |
+| `DEPARTMENT_AGENT` | Agent in a department |
+| `FIELD_WORKER` | Field-based employee |
+| `EMPLOYEE` | Standard member (read-only for KB) |
+
+### FastAPI Dependency Usage
 
 ```python
-# Get current user in a protected route
-from app.dependencies.auth import get_current_user
-from app.models.user import User
-
-@router.get("/your-endpoint")
-def your_route(current_user: User = Depends(get_current_user)):
-    org_id = current_user.organization_id  # Use for isolation!
-    ...
-
-# Role-restricted route
-from app.dependencies.auth import require_roles
+from app.dependencies.auth import get_current_user, require_admin, require_roles, get_current_org
 from app.models.user import UserRole
 
-@router.get("/admin-only")
-def admin_route(
-    current_user: User = Depends(require_roles(UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN))
-):
+# Any logged-in user
+@router.get("/profile")
+def my_profile(user: User = Depends(get_current_user)):
     ...
 
-# Database session
-from app.core.database import get_db
-from sqlalchemy.orm import Session
-
-@router.get("/your-data")
-def get_data(db: Session = Depends(get_db)):
+# Admin-only shortcut
+@router.post("/admin-action")
+def admin_action(user: User = Depends(require_admin)):
     ...
 
-# User model and enums
-from app.models.user import User, UserRole, UserStatus
+# Fine-grained role control
+@router.get("/supervisor-area")
+def supervisor_area(user: User = Depends(require_roles(UserRole.SUPERVISOR, UserRole.ORG_ADMIN))):
+    ...
 
-# User schemas
-from app.schemas.user import UserResponse
-```
-
-### Organization Isolation Pattern
-
-Always filter queries by `organization_id` to keep tenants isolated:
-
-```python
-# ✅ CORRECT — filters by org
-tickets = db.query(Ticket).filter(
-    Ticket.organization_id == current_user.organization_id
-).all()
-
-# ❌ WRONG — returns ALL orgs' data
-tickets = db.query(Ticket).all()
+# Auto-fetch the user's Organization
+@router.get("/org-info")
+def org_info(org: Organization = Depends(get_current_org)):
+    ...
 ```
 
 ---
 
-*VoxOps Backend — Authentication & User Profile Module*  
-*Built with FastAPI + SQLAlchemy + PostgreSQL*
+## Error Codes
+
+| HTTP Status | Meaning |
+|-------------|---------|
+| 400 | Bad request — invalid token, wrong current password, etc. |
+| 401 | Unauthorized — missing, invalid, or expired JWT |
+| 403 | Forbidden — insufficient role (e.g. member trying to create KB doc) |
+| 404 | Not found — resource doesn't exist in the user's organization |
+| 409 | Conflict — email already registered, slug already taken |
+| 422 | Validation error — missing field, invalid format, weak password |
+
+---
+
+## Multi-Tenancy Architecture
+
+Every table that contains tenant-specific data has an `organization_id` column with a FK to `organizations.id`. The application layer **always** filters queries by `current_user.organization_id` — users from one organization can never see data from another.
+
+**Tables and their tenant scope:**
+
+| Table | Org-scoped? | Note |
+|-------|------------|------|
+| `organizations` | Root entity | — |
+| `users` | ✅ `organization_id` | SUPER_ADMIN may have NULL |
+| `refresh_tokens` | Via `user_id` | Cascades on user delete |
+| `password_reset_tokens` | Via `user_id` | Cascades on user delete |
+| `invite_tokens` | ✅ `organization_id` | Cascades on org delete |
+| `knowledge_base_documents` | ✅ `organization_id` | Cascades on org delete |
+
+---
+
+## Adding a New Module
+
+1. Create `app/models/your_model.py` with `organization_id` FK
+2. Import it in `app/models/__init__.py` and `alembic/env.py`
+3. Run `alembic revision --autogenerate -m "add your_model"` then `alembic upgrade head`
+4. Create `app/schemas/your_module.py` (Create/Update/Response schemas)
+5. Create `app/modules/your_module/service.py` (always filter by `organization_id`)
+6. Create `app/modules/your_module/router.py` (use `get_current_user`/`require_admin`)
+7. Register the router in `app/main.py`
+
+---
+
+## Planned Modules
+
+- **Requests** — Employee service requests and ticketing
+- **Jobs** — Field operations job management
+- **Departments** — Org structure and department management
+- **Team** — Team member management
+- **Insights** — Analytics and reporting
+- **Activity** — Audit log and activity feed

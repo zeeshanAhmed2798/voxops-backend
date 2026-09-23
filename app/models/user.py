@@ -11,6 +11,10 @@ HOW IT WORKS:
 IMPORTANT FOR TEAM MEMBERS:
 - Import User from here: from app.models.user import User
 - Import enums from here: from app.models.user import UserRole, UserStatus
+
+ROLE MAPPING (spec ↔ implementation):
+  spec "admin"  → UserRole.ORG_ADMIN
+  spec "member" → UserRole.EMPLOYEE  (or any non-admin role)
 """
 
 import uuid
@@ -22,6 +26,8 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     Enum as SAEnum,
+    ForeignKey,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -39,13 +45,17 @@ class UserRole(str, Enum):
 
     Using str + Enum means: role.value == "ORG_ADMIN" AND role == "ORG_ADMIN" both work.
     This makes JSON serialization and comparisons much easier.
+
+    Mapping to spec terminology:
+      ORG_ADMIN = "admin" in API docs / spec
+      EMPLOYEE  = "member" in API docs / spec
     """
     SUPER_ADMIN      = "SUPER_ADMIN"       # Full platform access
     ORG_ADMIN        = "ORG_ADMIN"         # Admin of one organization
     SUPERVISOR       = "SUPERVISOR"        # Manages teams within an org
     DEPARTMENT_AGENT = "DEPARTMENT_AGENT"  # Agent working in a department
     FIELD_WORKER     = "FIELD_WORKER"      # Field-based employee
-    EMPLOYEE         = "EMPLOYEE"          # Standard employee
+    EMPLOYEE         = "EMPLOYEE"          # Standard employee / member
 
 
 class UserStatus(str, Enum):
@@ -64,11 +74,9 @@ class User(Base):
     The User table — central to the entire VoxOps system.
 
     Every authenticated user in every organization is a row in this table.
-    The organization_id field is what keeps organizations isolated from each other.
+    The organization_id field (with ForeignKey) is what keeps organizations isolated.
 
-    NOTE: organization_id does NOT have a ForeignKey constraint yet because
-    the Organization model will be built by another team member. We store the
-    UUID value directly — this is intentional and avoids blocking our work.
+    NOTE: email is globally unique across the system (existing migration constraint).
     """
 
     __tablename__ = "users"
@@ -83,17 +91,18 @@ class User(Base):
     )
 
     # ── Organization (Multi-Tenancy) ──────────────────────────────────────────
-    # No ForeignKey here intentionally — org table is another team member's work.
-    # Future: Add ForeignKey("organizations.id") when Organization model exists.
+    # ForeignKey to organizations.id — ensures referential integrity.
+    # SUPER_ADMIN users may have NULL organization_id (platform-level access).
     organization_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=True,   # SUPER_ADMIN may not belong to a specific org
         index=True,      # Index for fast org-level queries
         comment="Organization this user belongs to (multi-tenant isolation key)",
     )
 
     # ── Department (Optional Reference) ──────────────────────────────────────
-    # No ForeignKey — departments table is another team member's work.
+    # No ForeignKey yet — departments table will be added in a future module.
     department_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         nullable=True,
@@ -101,10 +110,11 @@ class User(Base):
     )
 
     # ── Basic Info ────────────────────────────────────────────────────────────
+    # Field is named 'name' in the DB but maps to 'full_name' in spec terminology.
     name: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
-        comment="Full name of the user",
+        comment="Full name of the user (spec field: full_name)",
     )
 
     email: Mapped[str] = mapped_column(
@@ -121,6 +131,15 @@ class User(Base):
         String(255),
         nullable=False,
         comment="bcrypt hash of the user's password — NEVER store plain text",
+    )
+
+    # ── Email Verification ────────────────────────────────────────────────────
+    is_email_verified: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+        comment="Whether the user's email address has been verified",
     )
 
     # ── Role & Status ─────────────────────────────────────────────────────────

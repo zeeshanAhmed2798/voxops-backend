@@ -1,7 +1,8 @@
 {
   "info": {
-    "name": "VoxOps Backend — Auth & Profile",
-    "description": "Complete Postman collection for all VoxOps authentication and user profile endpoints.\n\n**How to use:**\n1. Import this file into Postman (File → Import)\n2. Run 'Login' first — it auto-saves your token\n3. All protected requests use the saved token automatically\n\n**Dev credentials:**\n- Email: jane@example.com\n- Password: ChangeMe123!",
+    "_postman_id": "voxops-full-api-v2",
+    "name": "VoxOps API — Full Collection v2",
+    "description": "Complete API collection for VoxOps Backend.\n\nIncludes: Auth, User Profile, Knowledge Base.\n\n**How to use:**\n1. Run the 'Login' request\n2. The access_token is auto-saved to the {{access_token}} variable\n3. All protected requests use {{access_token}} automatically",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -9,51 +10,82 @@
       "key": "base_url",
       "value": "http://127.0.0.1:8000",
       "type": "string",
-      "description": "Base URL of the running FastAPI server"
+      "description": "Change to your production URL when deploying"
     },
     {
-      "key": "token",
+      "key": "access_token",
       "value": "",
       "type": "string",
-      "description": "JWT token — auto-filled after running the Login request"
+      "description": "Auto-populated after login"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string",
+      "description": "Auto-populated after login — use for /auth/refresh"
+    },
+    {
+      "key": "invite_token",
+      "value": "",
+      "type": "string",
+      "description": "Populated after calling invite-member"
+    },
+    {
+      "key": "reset_token",
+      "value": "",
+      "type": "string",
+      "description": "Populated after calling forgot-password"
+    },
+    {
+      "key": "kb_doc_id",
+      "value": "",
+      "type": "string",
+      "description": "Populated after creating a KB document"
+    },
+    {
+      "key": "verify_token",
+      "value": "",
+      "type": "string",
+      "description": "Manually paste this from your email/console to test verify-email"
     }
   ],
   "item": [
     {
-      "name": "Health Check",
+      "name": "🏥 Health",
       "item": [
         {
-          "name": "GET / — Health Check",
+          "name": "Health Check",
           "request": {
             "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/",
-              "host": ["{{base_url}}"],
-              "path": [""]
-            },
-            "description": "Simple health check. No auth required.\n\nExpected response:\n```json\n{\n  \"message\": \"VoxOps Backend is running\",\n  \"version\": \"1.0.0\",\n  \"status\": \"ok\"\n}\n```"
-          },
-          "response": []
+            "url": "{{base_url}}/health",
+            "description": "Verify the API is running"
+          }
+        },
+        {
+          "name": "Root",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/",
+            "description": "Root endpoint"
+          }
         }
       ]
     },
     {
-      "name": "Authentication",
+      "name": "🔐 Auth — Register",
       "item": [
         {
-          "name": "POST /auth/login — Login (get token)",
+          "name": "Register Org + Admin",
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
-                  "if (pm.response.code === 200) {",
-                  "    const data = pm.response.json();",
-                  "    pm.collectionVariables.set('token', data.access_token);",
-                  "    console.log('Token saved! Run protected endpoints now.');",
-                  "} else {",
-                  "    console.log('Login failed:', pm.response.text());",
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('access_token', body.access_token);",
+                  "  pm.collectionVariables.set('refresh_token', body.refresh_token);",
+                  "  console.log('Tokens saved. access_token:', body.access_token.substring(0,20) + '...');",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -62,262 +94,382 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type","value": "application/json"}],
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/v1/auth/register",
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"email\": \"jane@example.com\",\n    \"password\": \"ChangeMe123!\"\n}",
-              "options": {"raw": {"language": "json"}}
+              "raw": "{\n  \"org_name\": \"My Company\",\n  \"full_name\": \"Jane Doe\",\n  \"email\": \"jane@mycompany.com\",\n  \"password\": \"SecurePass123\"\n}"
             },
-            "url": {
-              "raw": "{{base_url}}/api/v1/auth/login",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "auth", "login"]
-            },
-            "description": "Login with email + password. Auto-saves the JWT token to {{token}} collection variable.\n\nExpected: 200 + access_token\nWrong password: 401\nInvalid email format: 422"
-          },
-          "response": []
+            "description": "Creates a new Organization + first Admin user. Returns access + refresh token. Run this once per company."
+          }
         },
         {
-          "name": "POST /auth/login — FAIL Wrong Password (401)",
+          "name": "Verify Email",
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type","value": "application/json"}],
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/v1/auth/verify-email",
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"email\": \"jane@example.com\",\n    \"password\": \"WrongPassword!\"\n}",
-              "options": {"raw": {"language": "json"}}
+              "raw": "{\n  \"token\": \"{{verify_token}}\"\n}"
             },
-            "url": {
-              "raw": "{{base_url}}/api/v1/auth/login",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "auth", "login"]
-            },
-            "description": "Expected: 401 Unauthorized\nDetail: Incorrect email or password."
-          },
-          "response": []
+            "description": "Verifies the email address using the token."
+          }
         },
         {
-          "name": "POST /auth/login — FAIL Invalid Email Format (422)",
+          "name": "Resend Verification Email",
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type","value": "application/json"}],
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/v1/auth/resend-verification-email",
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"email\": \"notanemail\",\n    \"password\": \"ChangeMe123!\"\n}",
-              "options": {"raw": {"language": "json"}}
+              "raw": "{\n  \"email\": \"jane@mycompany.com\"\n}"
             },
-            "url": {
-              "raw": "{{base_url}}/api/v1/auth/login",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "auth", "login"]
-            },
-            "description": "Expected: 422 Unprocessable Entity\nPydantic EmailStr rejects invalid email format."
-          },
-          "response": []
+            "description": "Resends the verification email."
+          }
         },
         {
-          "name": "GET /auth/me — Get Current User",
-          "request": {
-            "method": "GET",
-            "header": [{"key": "Authorization","value": "Bearer {{token}}"}],
-            "url": {
-              "raw": "{{base_url}}/api/v1/auth/me",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "auth", "me"]
-            },
-            "description": "Returns authenticated user profile. password_hash is NEVER returned.\n\nRun Login first to fill {{token}}."
-          },
-          "response": []
-        },
-        {
-          "name": "GET /auth/me — FAIL No Token (401)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/v1/auth/me",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "auth", "me"]
-            },
-            "description": "Expected: 401 Unauthorized — no token provided."
-          },
-          "response": []
-        },
-        {
-          "name": "GET /auth/me — FAIL Invalid Token (401)",
-          "request": {
-            "method": "GET",
-            "header": [{"key": "Authorization","value": "Bearer this.is.not.a.valid.jwt"}],
-            "url": {
-              "raw": "{{base_url}}/api/v1/auth/me",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "auth", "me"]
-            },
-            "description": "Expected: 401 Unauthorized — tampered JWT rejected."
-          },
-          "response": []
-        },
-        {
-          "name": "POST /auth/logout — Logout",
-          "request": {
-            "method": "POST",
-            "header": [{"key": "Authorization","value": "Bearer {{token}}"}],
-            "url": {
-              "raw": "{{base_url}}/api/v1/auth/logout",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "auth", "logout"]
-            },
-            "description": "Logout. Server instructs client to discard token.\nJWT is stateless so server cannot invalidate it — client must delete the token."
-          },
-          "response": []
-        },
-        {
-          "name": "POST /auth/change-password — Change Password",
+          "name": "Invite Member (Admin Only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('invite_token', body.invite_token);",
+                  "  console.log('Invite token saved:', body.invite_token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Authorization","value": "Bearer {{token}}"},
-              {"key": "Content-Type","value": "application/json"}
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
             ],
+            "url": "{{base_url}}/api/v1/auth/invite-member",
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"current_password\": \"ChangeMe123!\",\n    \"new_password\": \"NewSecurePass456!\"\n}",
-              "options": {"raw": {"language": "json"}}
+              "raw": "{\n  \"email\": \"bob@mycompany.com\",\n  \"full_name\": \"Bob Smith\",\n  \"role\": \"EMPLOYEE\"\n}"
             },
-            "url": {
-              "raw": "{{base_url}}/api/v1/auth/change-password",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "auth", "change-password"]
-            },
-            "description": "Change password.\n- Must provide correct current password\n- New password min 8 characters\n- Cannot reuse same password\n\nAfter running this, login again with the new password."
-          },
-          "response": []
+            "description": "Admin only. Generates an invite token for the given email. Token is saved to {{invite_token}}."
+          }
         },
         {
-          "name": "POST /auth/change-password — FAIL Wrong Current (400)",
+          "name": "Register Member (via Invite)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  console.log('Member registered. access_token:', body.access_token.substring(0,20) + '...');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
-            "header": [
-              {"key": "Authorization","value": "Bearer {{token}}"},
-              {"key": "Content-Type","value": "application/json"}
-            ],
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/v1/auth/register-member",
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"current_password\": \"WrongCurrentPassword!\",\n    \"new_password\": \"NewSecurePass456!\"\n}",
-              "options": {"raw": {"language": "json"}}
+              "raw": "{\n  \"invite_token\": \"{{invite_token}}\",\n  \"full_name\": \"Bob Smith\",\n  \"password\": \"MemberPass456\"\n}"
             },
-            "url": {
-              "raw": "{{base_url}}/api/v1/auth/change-password",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "auth", "change-password"]
-            },
-            "description": "Expected: 400 Bad Request\nDetail: Current password is incorrect."
-          },
-          "response": []
+            "description": "Uses the invite token from 'Invite Member'. No admin token required."
+          }
         }
       ]
     },
     {
-      "name": "User Profile",
+      "name": "🔑 Auth — Login & Session",
       "item": [
         {
-          "name": "GET /users/me — Get My Profile",
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('access_token', body.access_token);",
+                  "  pm.collectionVariables.set('refresh_token', body.refresh_token);",
+                  "  console.log('Logged in. Tokens saved.');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/v1/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@acme.com\",\n  \"password\": \"AdminPass123!\"\n}"
+            },
+            "description": "Login with email + password. Saves access_token and refresh_token to collection variables."
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('access_token', body.access_token);",
+                  "  pm.collectionVariables.set('refresh_token', body.refresh_token);",
+                  "  console.log('Tokens rotated and saved.');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/v1/auth/refresh",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "description": "Get a new access_token + rotated refresh_token. Run this when the access token expires."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+            ],
+            "url": "{{base_url}}/api/v1/auth/logout",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "description": "Deletes the refresh token from the database. Future refresh attempts with this token will fail."
+          }
+        },
+        {
+          "name": "Get Current User (me)",
           "request": {
             "method": "GET",
-            "header": [{"key": "Authorization","value": "Bearer {{token}}"}],
-            "url": {
-              "raw": "{{base_url}}/api/v1/users/me",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "users", "me"]
-            },
-            "description": "Get full user profile. password_hash never returned."
-          },
-          "response": []
+            "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+            "url": "{{base_url}}/api/v1/auth/me",
+            "description": "Returns the current user's profile based on the JWT."
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔒 Auth — Password",
+      "item": [
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+            ],
+            "url": "{{base_url}}/api/v1/auth/change-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"AdminPass123!\",\n  \"new_password\": \"NewAdminPass456!\"\n}"
+            }
+          }
         },
         {
-          "name": "PATCH /users/me — Update Profile",
+          "name": "Forgot Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.reset_token) {",
+                  "    pm.collectionVariables.set('reset_token', body.reset_token);",
+                  "    console.log('Reset token saved:', body.reset_token);",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/v1/auth/forgot-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@acme.com\"\n}"
+            },
+            "description": "In dev mode, the reset_token is returned in the response AND saved to {{reset_token}}."
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/v1/auth/reset-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{reset_token}}\",\n  \"new_password\": \"ResetPass789!\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👤 User Profile",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+            "url": "{{base_url}}/api/v1/users/me"
+          }
+        },
+        {
+          "name": "Update My Profile",
           "request": {
             "method": "PATCH",
             "header": [
-              {"key": "Authorization","value": "Bearer {{token}}"},
-              {"key": "Content-Type","value": "application/json"}
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
             ],
+            "url": "{{base_url}}/api/v1/users/me",
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"name\": \"Jane Updated\",\n    \"job_title\": \"Lead Engineer\",\n    \"phone\": \"+92-300-1234567\",\n    \"timezone\": \"Asia/Karachi\",\n    \"profile_picture\": \"https://cdn.example.com/avatars/jane.jpg\"\n}",
-              "options": {"raw": {"language": "json"}}
+              "raw": "{\n  \"name\": \"Jane Doe Updated\",\n  \"job_title\": \"CTO\",\n  \"phone\": \"+92-300-1234567\",\n  \"timezone\": \"Asia/Karachi\"\n}"
             },
+            "description": "Update own profile. Only send fields you want to change."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📚 Knowledge Base",
+      "item": [
+        {
+          "name": "List Documents",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
             "url": {
-              "raw": "{{base_url}}/api/v1/users/me",
+              "raw": "{{base_url}}/api/v1/knowledge-base?skip=0&limit=20",
               "host": ["{{base_url}}"],
-              "path": ["api", "v1", "users", "me"]
+              "path": ["api", "v1", "knowledge-base"],
+              "query": [
+                {"key": "skip", "value": "0"},
+                {"key": "limit", "value": "20"},
+                {"key": "category", "value": "", "disabled": true},
+                {"key": "search", "value": "", "disabled": true}
+              ]
             },
-            "description": "Update profile fields (PATCH = only send what you want to change).\n\nEditable: name, job_title, phone, timezone, profile_picture\nProtected (ignored): id, organization_id, role, status, email, password_hash"
-          },
-          "response": []
+            "description": "Lists all KB documents for your org. Admins see drafts too. Use category/search params to filter."
+          }
         },
         {
-          "name": "PATCH /users/me — SECURITY: Try to Change Role (should be ignored)",
+          "name": "Get Document",
           "request": {
-            "method": "PATCH",
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+            "url": "{{base_url}}/api/v1/knowledge-base/{{kb_doc_id}}",
+            "description": "Get full content of a single document."
+          }
+        },
+        {
+          "name": "Create Document (Admin Only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('kb_doc_id', body.id);",
+                  "  console.log('KB doc id saved:', body.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
             "header": [
-              {"key": "Authorization","value": "Bearer {{token}}"},
-              {"key": "Content-Type","value": "application/json"}
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
             ],
+            "url": "{{base_url}}/api/v1/knowledge-base",
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"role\": \"SUPER_ADMIN\",\n    \"name\": \"Jane Doe\"\n}",
-              "options": {"raw": {"language": "json"}}
+              "raw": "{\n  \"title\": \"Employee Handbook 2026\",\n  \"content\": \"# Employee Handbook\\n\\nWelcome to our team! This document covers everything you need to know.\",\n  \"category\": \"HR Policies\",\n  \"is_published\": true\n}"
             },
-            "url": {
-              "raw": "{{base_url}}/api/v1/users/me",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "users", "me"]
-            },
-            "description": "Security test: sending role=SUPER_ADMIN.\n\nExpected: role field is silently ignored.\nResponse will show original role (ORG_ADMIN), not SUPER_ADMIN.\nUsers cannot escalate their own privileges."
-          },
-          "response": []
+            "description": "Admin only. Returns 403 for non-admin users. Saves doc ID to {{kb_doc_id}}."
+          }
         },
         {
-          "name": "PATCH /users/me — SECURITY: Try to Change Org ID (should be ignored)",
+          "name": "Update Document (Admin Only)",
           "request": {
-            "method": "PATCH",
+            "method": "PUT",
             "header": [
-              {"key": "Authorization","value": "Bearer {{token}}"},
-              {"key": "Content-Type","value": "application/json"}
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
             ],
+            "url": "{{base_url}}/api/v1/knowledge-base/{{kb_doc_id}}",
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"organization_id\": \"99999999-9999-9999-9999-999999999999\",\n    \"name\": \"Jane Doe\"\n}",
-              "options": {"raw": {"language": "json"}}
+              "raw": "{\n  \"title\": \"Employee Handbook 2026 (Updated)\",\n  \"is_published\": true\n}"
             },
-            "url": {
-              "raw": "{{base_url}}/api/v1/users/me",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "users", "me"]
-            },
-            "description": "Security test: trying to change organization_id.\n\nExpected: organization_id is silently ignored.\nOriginal org ID remains unchanged.\nCritical for multi-tenant isolation."
-          },
-          "response": []
+            "description": "Admin only. Send only the fields you want to change."
+          }
         },
         {
-          "name": "PATCH /users/me — FAIL No Auth (401)",
+          "name": "Delete Document (Admin Only)",
           "request": {
-            "method": "PATCH",
-            "header": [{"key": "Content-Type","value": "application/json"}],
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+            "url": "{{base_url}}/api/v1/knowledge-base/{{kb_doc_id}}",
+            "description": "Admin only. Permanently deletes the document. Returns 204 No Content."
+          }
+        },
+        {
+          "name": "❌ Member tries to Create (Expect 403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+            ],
+            "url": "{{base_url}}/api/v1/knowledge-base",
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"name\": \"Hacker\"\n}",
-              "options": {"raw": {"language": "json"}}
+              "raw": "{\n  \"title\": \"I should not be able to create this\",\n  \"content\": \"Members cannot create KB docs.\"\n}"
             },
-            "url": {
-              "raw": "{{base_url}}/api/v1/users/me",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "users", "me"]
-            },
-            "description": "Expected: 401 Unauthorized — cannot update profile without being logged in."
-          },
-          "response": []
+            "description": "Login as a member user first, then run this. Should return 403 Forbidden."
+          }
         }
       ]
     }

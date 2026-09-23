@@ -45,6 +45,7 @@ class UserResponse(BaseModel):
     email: EmailStr
     role: UserRole
     status: UserStatus
+    is_email_verified: bool = False
 
     # Profile fields
     job_title: Optional[str] = None

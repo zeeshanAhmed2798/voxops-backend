@@ -13,11 +13,15 @@ HOW DEPENDENCIES WORK IN FASTAPI:
 WHAT THIS FILE PROVIDES:
 1. get_current_user()     → extracts user from JWT, checks status
 2. require_roles(*roles)  → factory for role-based access control
+3. require_admin          → shortcut: require_roles(ORG_ADMIN, SUPER_ADMIN)
+4. get_current_org()      → fetches the current user's Organization from DB
 
 FOR TEAM MEMBERS:
-- Use get_current_user for any protected route.
-- Use require_roles to restrict routes to specific roles.
-- current_user.organization_id is available for multi-tenant isolation checks.
+- Use get_current_user for any protected route (any logged-in user).
+- Use require_admin for admin-only routes (KB write, invite member, etc.).
+- Use require_roles(...) for fine-grained multi-role access control.
+- Use get_current_org when you need the Organization object (slug, name, etc.).
+- current_user.organization_id is always available for multi-tenant scoping.
 """
 
 import uuid as uuid_module
@@ -30,6 +34,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import decode_access_token
 from app.models.user import User, UserRole, UserStatus
+from app.models.organization import Organization
 
 
 # ── HTTP Bearer scheme ─────────────────────────────────────────────────────────
@@ -187,3 +192,55 @@ def require_roles(*allowed_roles: UserRole) -> Callable:
         return current_user
 
     return _check_roles
+
+
+# ── require_admin ──────────────────────────────────────────────────────────────
+
+# Pre-built dependency: restricts an endpoint to ORG_ADMIN or SUPER_ADMIN.
+# Usage:
+#   @router.post("/admin-only")
+#   def admin_route(current_user: User = Depends(require_admin)):
+#       ...
+require_admin = require_roles(UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)
+
+
+# ── get_current_org ────────────────────────────────────────────────────────────
+
+def get_current_org(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Organization:
+    """
+    FastAPI dependency: fetch the Organization for the current authenticated user.
+
+    This ensures every org-level query is automatically scoped to the right tenant.
+    Use this dependency when you need access to Organization fields (name, slug, etc.)
+
+    Usage in a route:
+        @router.get("/org-info")
+        def org_info(org: Organization = Depends(get_current_org)):
+            return {"org_name": org.name}
+
+    Raises:
+        400 Bad Request — if the user has no organization_id (e.g. SUPER_ADMIN
+                          calling an org-scoped endpoint without context)
+        404 Not Found   — if the organization doesn't exist (data integrity issue)
+    """
+    if current_user.organization_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This endpoint requires an organization context. "
+                   "Your account is not associated with any organization.",
+        )
+
+    org = db.query(Organization).filter(
+        Organization.id == current_user.organization_id
+    ).first()
+
+    if org is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found. Please contact support.",
+        )
+
+    return org

@@ -7,8 +7,12 @@ HOW IT WORKS:
 - Passwords: We use bcrypt (via passlib). It's slow on purpose — hard to brute-force.
 - JWT: We encode user identity into a signed token. The signature uses JWT_SECRET.
   Anyone with the secret can verify the token is genuine (not tampered with).
+- Refresh tokens: Opaque random strings stored in the DB (not JWTs). This lets us
+  truly revoke them on logout by deleting the DB row.
+- Secure tokens: Random URL-safe strings for password reset and invite emails.
 """
 
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
@@ -59,6 +63,7 @@ def create_access_token(
       - sub           : user's UUID (standard JWT 'subject' claim)
       - organization_id : which org this user belongs to (for isolation)
       - role          : user's role (for authorization checks)
+      - token_type    : "access" to distinguish from other token types
       - exp           : expiration timestamp
 
     The token is SIGNED with JWT_SECRET — if someone tampers with the payload,
@@ -84,6 +89,7 @@ def create_access_token(
         "sub": user_id,                        # subject = user ID
         "organization_id": organization_id,    # for multi-tenant isolation
         "role": role,                          # for authorization
+        "token_type": "access",                # distinguish from refresh JWT
         "exp": expire,                         # expiration time
     }
 
@@ -111,3 +117,45 @@ def decode_access_token(token: str) -> dict:
         algorithms=[settings.JWT_ALGORITHM],
     )
     return payload
+
+
+# ── Refresh Token (Opaque) ───────────────────────────────────────────────────
+
+def create_refresh_token() -> str:
+    """
+    Generate a cryptographically secure random refresh token.
+
+    This is an OPAQUE token (not a JWT). It is stored in the database and
+    looked up on each refresh request. On logout, the DB row is deleted,
+    which immediately invalidates the token.
+
+    Returns:
+        A 64-character URL-safe random hex string.
+
+    Why not a JWT?
+        JWTs are self-contained and cannot be revoked before expiry.
+        Storing the refresh token in the DB gives us true revocation.
+    """
+    return secrets.token_hex(64)  # 128 characters, 512 bits of entropy
+
+
+# ── Secure One-Time Tokens ───────────────────────────────────────────────────
+
+def generate_secure_token(nbytes: int = 32) -> str:
+    """
+    Generate a URL-safe secure random token for password resets and invites.
+
+    These tokens are stored in the DB with an expiry. Once used, they are
+    marked as `is_used=True` and cannot be reused.
+
+    Args:
+        nbytes: Number of random bytes (default 32 → 43-char URL-safe string).
+
+    Returns:
+        A URL-safe base64-encoded random string.
+
+    Example:
+        token = generate_secure_token()
+        # → "abc123xyz..." (43 chars, URL-safe)
+    """
+    return secrets.token_urlsafe(nbytes)

@@ -33,7 +33,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # they should be imported here too.
 from app.core.config import settings      # Load .env variables
 from app.core.database import Base        # SQLAlchemy metadata
-from app.models.user import User          # noqa: F401 — imported for side effects (registers model)
+
+# ── Import ALL models so Alembic autogenerate can detect them ────────────────
+# Every new model added to the project MUST be imported here.
+from app.models.organization import Organization            # noqa: F401
+from app.models.user import User                           # noqa: F401
+from app.models.refresh_token import RefreshToken          # noqa: F401
+from app.models.password_reset_token import PasswordResetToken  # noqa: F401
+from app.models.invite_token import InviteToken            # noqa: F401
+from app.models.knowledge_base import KnowledgeBaseDocument  # noqa: F401
 
 
 # ── Alembic Config ─────────────────────────────────────────────────────────
