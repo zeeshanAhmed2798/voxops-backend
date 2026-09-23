@@ -48,7 +48,7 @@ jobs:
     - name: Run database migrations
       run: |
         python -c "
-        import sys, traceback
+        import os, sys, traceback
         print('Running Alembic upgrade head...')
         try:
             from alembic.config import Config
@@ -57,7 +57,12 @@ jobs:
             command.upgrade(alembic_cfg, 'head')
             print('Migrations succeeded!')
         except Exception as e:
-            print('=== ALEMBIC MIGRATION FAILED ===')
+            err_msg = traceback.format_exc()
+            print(f'::error title=Alembic Migration Failure::{e}')
+            summary_file = os.environ.get('GITHUB_STEP_SUMMARY')
+            if summary_file:
+                with open(summary_file, 'a') as f:
+                    f.write('### ❌ Migration Failure\n```\n' + err_msg + '\n```\n')
             traceback.print_exc()
             sys.exit(1)
         "
