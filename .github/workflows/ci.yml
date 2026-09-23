@@ -61,3 +61,8 @@ jobs:
           cat uvicorn.log
           exit 1
         fi
+
+    - name: Run Pytest Suite
+      run: |
+        pytest
+
