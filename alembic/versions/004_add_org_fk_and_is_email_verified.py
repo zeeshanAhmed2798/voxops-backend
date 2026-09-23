@@ -1,18 +1,9 @@
-"""Add org FK and is_email_verified to users table
+"""Add slug to orgs, FKs to users, and is_email_verified
 
-Revision ID: 003
-Revises: 002
+Revision ID: 004
+Revises: 003
 Create Date: 2026-09-23
 
-Two changes to the existing 'users' table:
-1. Add is_email_verified boolean column (default false)
-2. Add ForeignKey constraint on organization_id → organizations.id
-
-Note: The organization_id column already exists from migration 001.
-We're just adding the FK constraint now that the organizations table exists.
-
-To apply:    alembic upgrade head
-To roll back: alembic downgrade -1
 """
 
 from typing import Sequence, Union
@@ -28,9 +19,18 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Add is_email_verified column and organization FK constraint."""
-
-    # 1. Add is_email_verified column
+    # 1. Add slug to organizations
+    op.add_column('organizations', sa.Column('slug', sa.String(100), nullable=True))
+    
+    # 2. Populate slug for existing organizations using a simple generation strategy
+    op.execute("UPDATE organizations SET slug = 'org-' || id::text WHERE slug IS NULL")
+    
+    # 3. Make slug not null
+    op.alter_column('organizations', 'slug', existing_type=sa.String(100), nullable=False)
+    op.create_unique_constraint("uq_organizations_slug", "organizations", ["slug"])
+    op.create_index("ix_organizations_slug", "organizations", ["slug"], unique=True)
+    
+    # 4. Add is_email_verified to users
     op.add_column(
         "users",
         sa.Column(
@@ -42,8 +42,7 @@ def upgrade() -> None:
         ),
     )
 
-    # 2. Add FK constraint on organization_id
-    # The column already exists — we're just adding the constraint.
+    # 5. Add FK constraints on organization_id and department_id for users
     op.create_foreign_key(
         constraint_name="fk_users_organization_id",
         source_table="users",
@@ -52,9 +51,22 @@ def upgrade() -> None:
         remote_cols=["id"],
         ondelete="CASCADE",
     )
+    
+    op.create_foreign_key(
+        constraint_name="fk_users_department_id",
+        source_table="users",
+        referent_table="departments",
+        local_cols=["department_id"],
+        remote_cols=["id"],
+        ondelete="SET NULL",
+    )
 
 
 def downgrade() -> None:
-    """Remove is_email_verified and drop the FK constraint."""
+    op.drop_constraint("fk_users_department_id", "users", type_="foreignkey")
     op.drop_constraint("fk_users_organization_id", "users", type_="foreignkey")
     op.drop_column("users", "is_email_verified")
+    
+    op.drop_index("ix_organizations_slug", table_name="organizations")
+    op.drop_constraint("uq_organizations_slug", "organizations", type_="unique")
+    op.drop_column("organizations", "slug")
