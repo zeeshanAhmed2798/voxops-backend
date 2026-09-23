@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      DATABASE_URL: postgresql+psycopg://test_user:test_password@localhost:5432/voxops_test
+      DATABASE_URL: postgresql+psycopg://test_user:test_password@127.0.0.1:5432/voxops_test
       JWT_SECRET: super_secret_dummy_key_for_ci_testing_only
       RESEND_API_KEY: re_placeholder_for_ci
       RESEND_FROM_EMAIL: noreply@example.com
