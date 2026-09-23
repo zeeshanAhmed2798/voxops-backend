@@ -9,6 +9,12 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql+psycopg://test_user:test_password@localhost:5432/voxops_test
+      JWT_SECRET: super_secret_dummy_key_for_ci
+      RESEND_API_KEY: re_placeholder_for_ci
+      RESEND_FROM_EMAIL: noreply@example.com
+      APP_ENV: development
 
     services:
       postgres:
@@ -39,18 +45,10 @@ jobs:
         pip install -r requirements.txt
 
     - name: Run database migrations
-      env:
-        DATABASE_URL: postgresql+psycopg://test_user:test_password@localhost:5432/voxops_test
       run: |
         alembic upgrade head
 
     - name: Start FastAPI server in background
-      env:
-        DATABASE_URL: postgresql+psycopg://test_user:test_password@localhost:5432/voxops_test
-        JWT_SECRET: super_secret_dummy_key_for_ci
-        RESEND_API_KEY: re_placeholder_for_ci
-        RESEND_FROM_EMAIL: noreply@example.com
-        APP_ENV: development
       run: |
         uvicorn app.main:app --port 8000 > uvicorn.log 2>&1 &
         # Wait for the server to start
