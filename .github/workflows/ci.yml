@@ -47,7 +47,20 @@ jobs:
 
     - name: Run database migrations
       run: |
-        alembic upgrade head
+        python -c "
+        import sys, traceback
+        print('Running Alembic upgrade head...')
+        try:
+            from alembic.config import Config
+            from alembic import command
+            alembic_cfg = Config('alembic.ini')
+            command.upgrade(alembic_cfg, 'head')
+            print('Migrations succeeded!')
+        except Exception as e:
+            print('=== ALEMBIC MIGRATION FAILED ===')
+            traceback.print_exc()
+            sys.exit(1)
+        "
 
     - name: Start FastAPI server in background
       run: |
