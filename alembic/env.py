@@ -78,8 +78,10 @@ def run_migrations_online() -> None:
     Run migrations in 'online' mode (connects to DB and applies changes).
     This is the normal mode used by `alembic upgrade head`.
     """
+    section = config.get_section(config.config_ini_section, {})
+    section["sqlalchemy.url"] = settings.DATABASE_URL
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        section,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
