@@ -52,10 +52,14 @@ jobs:
         RESEND_FROM_EMAIL: noreply@example.com
         APP_ENV: development
       run: |
-        uvicorn app.main:app --port 8000 &
+        uvicorn app.main:app --port 8000 > uvicorn.log 2>&1 &
         # Wait for the server to start
         sleep 5
 
     - name: Run API Tests
       run: |
-        python test_api.py
+        if ! python test_api.py; then
+          echo "API Tests failed. Uvicorn logs:"
+          cat uvicorn.log
+          exit 1
+        fi
