@@ -98,7 +98,7 @@
             "url": "{{base_url}}/api/v1/auth/register",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"org_name\": \"My Company\",\n  \"full_name\": \"Jane Doe\",\n  \"email\": \"jane@mycompany.com\",\n  \"password\": \"SecurePass123\"\n}"
+              "raw": "{\n  \"org_name\": \"My Company\",\n  \"full_name\": \"Jane Doe\",\n  \"email\": \"jane@mycompany.com\",\n  \"password\": \"dummy_password\"\n}"
             },
             "description": "Creates a new Organization + first Admin user. Returns access + refresh token. Run this once per company."
           }
@@ -182,7 +182,7 @@
             "url": "{{base_url}}/api/v1/auth/register-member",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"invite_token\": \"{{invite_token}}\",\n  \"full_name\": \"Bob Smith\",\n  \"password\": \"MemberPass456\"\n}"
+              "raw": "{\n  \"invite_token\": \"{{invite_token}}\",\n  \"full_name\": \"Bob Smith\",\n  \"password\": \"dummy_password\"\n}"
             },
             "description": "Uses the invite token from 'Invite Member'. No admin token required."
           }
@@ -216,7 +216,7 @@
             "url": "{{base_url}}/api/v1/auth/login",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@acme.com\",\n  \"password\": \"AdminPass123!\"\n}"
+              "raw": "{\n  \"email\": \"admin@acme.com\",\n  \"password\": \"dummy_password\"\n}"
             },
             "description": "Login with email + password. Saves access_token and refresh_token to collection variables."
           }
@@ -291,7 +291,7 @@
             "url": "{{base_url}}/api/v1/auth/change-password",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"current_password\": \"AdminPass123!\",\n  \"new_password\": \"NewAdminPass456!\"\n}"
+              "raw": "{\n  \"current_password\": \"dummy_password\",\n  \"new_password\": \"new_dummy_password\"\n}"
             }
           }
         },
@@ -333,7 +333,7 @@
             "url": "{{base_url}}/api/v1/auth/reset-password",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"token\": \"{{reset_token}}\",\n  \"new_password\": \"ResetPass789!\"\n}"
+              "raw": "{\n  \"token\": \"{{reset_token}}\",\n  \"new_password\": \"new_dummy_password\"\n}"
             }
           }
         }
