@@ -37,6 +37,7 @@ from app.models.user import User          # noqa: F401 — imported for side eff
 from app.models.organization import Organization  # noqa: F401
 from app.models.department import Department  # noqa: F401
 from app.models.job import Job  # noqa: F401
+from app.models.token import RefreshToken  # noqa: F401
 
 
 # ── Alembic Config ─────────────────────────────────────────────────────────

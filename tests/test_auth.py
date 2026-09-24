@@ -51,8 +51,40 @@ class TestLogin:
         data = response.json()
         assert data["success"] is True
         assert "access_token" in data["data"]
+        assert "refresh_token" in data["data"]
         assert data["data"]["token_type"] == "bearer"
-        assert len(data["data"]["access_token"]) > 10  # Token is not empty
+        assert len(data["data"]["access_token"]) > 10
+        assert len(data["data"]["refresh_token"]) > 10
+
+class TestRefreshToken:
+    """Tests for POST /api/v1/auth/refresh"""
+
+    def test_refresh_token_success(self, client: TestClient, test_user: User):
+        """Valid refresh token should return new access and refresh tokens."""
+        login_resp = client.post(
+            "/api/v1/auth/login",
+            json={"email": "jane@example.com", "password": "ChangeMe123!"},
+        )
+        refresh_token = login_resp.json()["data"]["refresh_token"]
+
+        response = client.post(
+            "/api/v1/auth/refresh",
+            json={"refresh_token": refresh_token},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert "access_token" in data["data"]
+        assert "refresh_token" in data["data"]
+        assert data["data"]["refresh_token"] != refresh_token  # Token rotated
+
+    def test_refresh_token_invalid(self, client: TestClient):
+        """Invalid refresh token should return 401."""
+        response = client.post(
+            "/api/v1/auth/refresh",
+            json={"refresh_token": "invalid_refresh_token_str"},
+        )
+        assert response.status_code == 401
 
     def test_login_wrong_password(self, client: TestClient, test_user: User):
         """Wrong password should return 401."""

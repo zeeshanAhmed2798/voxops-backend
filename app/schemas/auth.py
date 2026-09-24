@@ -37,16 +37,36 @@ class LoginRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     """
-    Response for POST /api/v1/auth/login
-    The client stores this token and sends it in future requests.
+    Response for POST /api/v1/auth/login and POST /api/v1/auth/refresh
+    The client stores these tokens and sends access_token in future requests.
     """
     access_token: str = Field(
         ...,
         description="Signed JWT access token",
     )
+    refresh_token: str = Field(
+        ...,
+        description="Opaque refresh token for obtaining new access tokens",
+    )
     token_type: str = Field(
         default="bearer",
         description="Always 'bearer' — standard OAuth2 token type",
+    )
+    expires_in: int = Field(
+        default=1800,
+        description="Access token expiration time in seconds (30 minutes)",
+    )
+
+
+class RefreshRequest(BaseModel):
+    """
+    Body for POST /api/v1/auth/refresh
+    Client sends valid refresh_token to issue a new access_token.
+    """
+    refresh_token: str = Field(
+        ...,
+        min_length=1,
+        description="Valid refresh token string previously received from login",
     )
 
 

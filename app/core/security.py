@@ -95,6 +95,17 @@ def create_access_token(
     return token
 
 
+import secrets
+
+
+def create_refresh_token() -> str:
+    """
+    Generate an opaque, cryptographically secure random refresh token string.
+    512-bit entropy (128-char hex string).
+    """
+    return secrets.token_hex(64)
+
+
 def decode_access_token(token: str) -> dict:
     """
     Decode and verify a JWT access token.
