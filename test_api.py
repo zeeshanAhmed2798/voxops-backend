@@ -12,7 +12,8 @@ def main():
         with urllib.request.urlopen(req) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             print("Health response:", data)
-            if data.get("status") in ["ok", "healthy"]:
+            # Response is wrapped in BaseResponse: {"success": true, "data": {"status": "ok"}}
+            if data.get("success") is True or data.get("data", {}).get("status") == "ok":
                 print("API Health check passed!")
                 return 0
     except Exception as e:
