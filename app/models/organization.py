@@ -16,9 +16,12 @@ class Organization(Base):
     __tablename__ = "organizations"
 
     # Stable UUID matches the organization_id already stored on User.
-    id: Mapped[uuid.UUID]  
-    mapped_column(GUID(), 
-    primary_key=True, default=uuid.uuid4, comment="Stable organization UUID used by users, departments, and jobs")
+    id: Mapped[uuid.UUID] = mapped_column(
+        GUID(),
+        primary_key=True,
+        default=uuid.uuid4,
+        comment="Stable organization UUID used by users, departments, and jobs",
+    )
     # Human-readable name for the workspace and administrator screens.
     name: Mapped[str] = mapped_column(String(255), nullable=False, comment="Organization display name")
     # Creation time supports audit and future organization lifecycle work.

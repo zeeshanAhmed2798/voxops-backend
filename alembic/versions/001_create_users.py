@@ -109,7 +109,7 @@ def upgrade() -> None:
         # ── Role & Status ─────────────────────────────────────────────────
         sa.Column(
             "role",
-            sa.Enum(
+            postgresql.ENUM(
                 "SUPER_ADMIN",
                 "ORG_ADMIN",
                 "SUPERVISOR",
@@ -125,7 +125,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "status",
-            sa.Enum(
+            postgresql.ENUM(
                 "ACTIVE",
                 "INACTIVE",
                 "SUSPENDED",
