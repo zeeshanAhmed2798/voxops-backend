@@ -41,6 +41,7 @@ class UserResponse(BaseModel):
     id: uuid.UUID
     organization_id: Optional[uuid.UUID]
     department_id: Optional[uuid.UUID]
+    user_role_id: uuid.UUID
     name: str
     email: EmailStr
     role: UserRole

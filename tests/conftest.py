@@ -32,7 +32,7 @@ from sqlalchemy.orm import sessionmaker, Session
 from app.main import app
 from app.core.database import Base, get_db
 from app.core.security import hash_password
-from app.models.user import User, UserRole, UserStatus
+from app.models.user import AppRole, User, UserRole, UserStatus
 from app.models.organization import Organization
 from app.models.department import Department
 from app.models.job import Job
@@ -61,6 +61,18 @@ def create_test_tables():
     # SQLite doesn't support PostgreSQL ENUM types natively.
     # SQLAlchemy handles this gracefully by using VARCHAR for ENUM columns in SQLite.
     Base.metadata.create_all(bind=test_engine)
+    session = TestingSessionLocal()
+    for index, role in enumerate(UserRole):
+        session.add(AppRole(
+            id=uuid.uuid4(),
+            code=role.value,
+            name=role.value.replace("_", " ").title(),
+            is_assignable=role != UserRole.SUPER_ADMIN,
+            is_active=True,
+            sort_order=index,
+        ))
+    session.commit()
+    session.close()
     yield
     Base.metadata.drop_all(bind=test_engine)
 
@@ -103,13 +115,14 @@ def client(db: Session) -> Generator[TestClient, None, None]:
 @pytest.fixture()
 def test_user(db: Session) -> User:
     """Create an active test user in the test database."""
+    role = db.query(AppRole).filter_by(code=UserRole.ORG_ADMIN.value).one()
     user = User(
         id=uuid.uuid4(),
         organization_id=uuid.UUID("a1b2c3d4-0000-0000-0000-000000000001"),
         name="Jane Doe",
         email="jane@example.com",
         password_hash=hash_password("ChangeMe123!"),
-        role=UserRole.ORG_ADMIN,
+        user_role_id=role.id,
         status=UserStatus.ACTIVE,
         job_title="Test Admin",
         timezone="UTC",
@@ -123,13 +136,14 @@ def test_user(db: Session) -> User:
 @pytest.fixture()
 def inactive_user(db: Session) -> User:
     """Create an INACTIVE test user (should not be able to log in)."""
+    role = db.query(AppRole).filter_by(code=UserRole.EMPLOYEE.value).one()
     user = User(
         id=uuid.uuid4(),
         organization_id=uuid.UUID("a1b2c3d4-0000-0000-0000-000000000001"),
         name="Inactive User",
         email="inactive@example.com",
         password_hash=hash_password("ChangeMe123!"),
-        role=UserRole.EMPLOYEE,
+        user_role_id=role.id,
         status=UserStatus.INACTIVE,
     )
     db.add(user)

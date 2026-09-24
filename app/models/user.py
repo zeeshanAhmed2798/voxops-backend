@@ -23,12 +23,15 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     Enum as SAEnum,
+    ForeignKey,
+    Integer,
+    UniqueConstraint,
     func,
 )
 # pyrefly: ignore [missing-import]
 from sqlalchemy.dialects.postgresql import UUID
 # pyrefly: ignore [missing-import]
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -55,9 +58,33 @@ class UserStatus(str, Enum):
     """
     Account status. Only ACTIVE users can log in.
     """
+    INVITED   = "INVITED"    # Invited but has not activated the account
     ACTIVE    = "ACTIVE"     # Can log in and use the system
     INACTIVE  = "INACTIVE"   # Disabled (e.g. left the company)
     SUSPENDED = "SUSPENDED"  # Temporarily blocked
+
+
+# ── Role Lookup Model ─────────────────────────────────────────────────────────
+
+class AppRole(Base):
+    """UUID-backed application role used by users and frontend dropdowns."""
+
+    __tablename__ = "user_roles"
+    __table_args__ = (UniqueConstraint("code", name="uq_user_roles_code"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    code: Mapped[str] = mapped_column(String(50), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(500))
+    is_assignable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
 
 
 # ── User Model ───────────────────────────────────────────────────────────────
@@ -96,12 +123,14 @@ class User(Base):
     )
 
     # ── Department (Optional Reference) ──────────────────────────────────────
-    # No ForeignKey — departments table is another team member's work.
     department_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
+        ForeignKey("departments.id", ondelete="SET NULL"),
         nullable=True,
+        index=True,
         comment="Department this user belongs to (optional)",
     )
+    department = relationship("Department", lazy="joined")
 
     # ── Basic Info ────────────────────────────────────────────────────────────
     name: Mapped[str] = mapped_column(
@@ -120,19 +149,21 @@ class User(Base):
 
     # ── Security ──────────────────────────────────────────────────────────────
     # NEVER store the plain password. Only the bcrypt hash goes here.
-    password_hash: Mapped[str] = mapped_column(
+    password_hash: Mapped[str | None] = mapped_column(
         String(255),
-        nullable=False,
+        nullable=True,
         comment="bcrypt hash of the user's password — NEVER store plain text",
     )
 
     # ── Role & Status ─────────────────────────────────────────────────────────
-    role: Mapped[UserRole] = mapped_column(
-        SAEnum(UserRole, name="userrole", create_type=True),
+    user_role_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("user_roles.id", ondelete="RESTRICT"),
         nullable=False,
-        default=UserRole.EMPLOYEE,
-        comment="User's role — controls what they can access",
+        index=True,
+        comment="Application role controlling API authorization",
     )
+    user_role: Mapped[AppRole] = relationship(lazy="joined")
 
     status: Mapped[UserStatus] = mapped_column(
         SAEnum(UserStatus, name="userstatus", create_type=True),
@@ -182,6 +213,11 @@ class User(Base):
         onupdate=func.now(),
         comment="When this user account was last modified",
     )
+
+    @property
+    def role(self) -> UserRole:
+        """Compatibility accessor used by authorization and JWT creation."""
+        return UserRole(self.user_role.code)
 
     def __repr__(self) -> str:
         return f"<User id={self.id} email={self.email} role={self.role}>"
