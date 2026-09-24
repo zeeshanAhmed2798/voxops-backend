@@ -54,7 +54,7 @@ def authenticate_user(db: Session, request: LoginRequest) -> TokenResponse:
     # Step 2: Verify password
     # IMPORTANT: We check BOTH "user not found" AND "wrong password" with the same error.
     # This prevents user enumeration attacks.
-    if user is None or not verify_password(request.password, user.password_hash):
+    if user is None or user.password_hash is None or not verify_password(request.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password.",
@@ -71,6 +71,11 @@ def authenticate_user(db: Session, request: LoginRequest) -> TokenResponse:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This account has been suspended. Contact your administrator.",
+        )
+    if user.status == UserStatus.INVITED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Complete your invitation before signing in.",
         )
 
     # Step 4: Create JWT token

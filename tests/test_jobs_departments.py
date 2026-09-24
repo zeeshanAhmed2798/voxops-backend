@@ -5,15 +5,17 @@ import uuid
 from app.core.security import hash_password
 # pyrefly: ignore [missing-import]
 from app.models.department import Department
+from app.models.department import DepartmentCategory
 # pyrefly: ignore [missing-import]
 from app.models.organization import Organization
-from app.models.user import User, UserRole, UserStatus
+from app.models.user import AppRole, User, UserRole, UserStatus
 
 
 def _user(db, org_id, email, role=UserRole.EMPLOYEE):
+    role_record = db.query(AppRole).filter_by(code=role.value).one()
     user = User(id=uuid.uuid4(), organization_id=org_id, name=email,
                 email=email, password_hash=hash_password("ChangeMe123!"),
-                role=role, status=UserStatus.ACTIVE)
+                user_role_id=role_record.id, status=UserStatus.ACTIVE)
     db.add(user)
     db.commit()
     return user
@@ -40,7 +42,7 @@ def test_department_and_job_flow(client, db, test_user, auth_headers):
     response = client.post("/api/v1/departments", json={"name": "Maintenance", "description": "Field repairs"}, headers=auth_headers)
     assert response.status_code == 201, response.text
     department_id = response.json()["data"]["id"]
-    assert client.get("/api/v1/departments", headers=tech_headers).json()["data"][0]["name"] == "Maintenance"
+    assert client.get("/api/v1/departments", headers=tech_headers).json()["data"]["items"][0]["name"] == "Maintenance"
     assert client.post("/api/v1/departments", json={"name": "Maintenance"}, headers=auth_headers).status_code == 409
     assert client.post("/api/v1/departments", json={"name": "IT"}, headers=tech_headers).status_code == 403
 
@@ -56,6 +58,69 @@ def test_department_and_job_flow(client, db, test_user, auth_headers):
     assert client.patch(f"/api/v1/jobs/{job_id}/status", json={"status": "COMPLETED"}, headers=tech_headers).status_code == 409
     assert client.patch(f"/api/v1/jobs/{job_id}/status", json={"status": "IN_PROGRESS"}, headers=tech_headers).status_code == 200
     assert client.patch(f"/api/v1/jobs/{job_id}/status", json={"status": "COMPLETED"}, headers=tech_headers).status_code == 200
+
+
+def test_create_department_with_categories(client, db, test_user, auth_headers):
+    db.add(Organization(id=test_user.organization_id, name="CoolTech"))
+    db.commit()
+
+    response = client.post(
+        "/api/v1/departments",
+        json={
+            "name": "HR",
+            "description": "People operations",
+            "categories": [" Leave ", "Payroll", "Employee Concerns"],
+        },
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 201, response.text
+    data = response.json()["data"]
+    assert data["name"] == "HR"
+    assert [category["name"] for category in data["categories"]] == [
+        "Leave",
+        "Payroll",
+        "Employee Concerns",
+    ]
+    assert all(category["is_active"] for category in data["categories"])
+    persisted = db.query(DepartmentCategory).filter_by(department_id=uuid.UUID(data["id"])).all()
+    assert [category.name for category in persisted] == ["Leave", "Payroll", "Employee Concerns"]
+
+
+def test_create_department_categories_are_optional_and_icon_is_not_accepted(
+    client, db, test_user, auth_headers
+):
+    db.add(Organization(id=test_user.organization_id, name="CoolTech"))
+    db.commit()
+
+    response = client.post(
+        "/api/v1/departments",
+        json={"name": "Finance"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["data"]["categories"] == []
+
+    response = client.post(
+        "/api/v1/departments",
+        json={"name": "IT", "icon": "IT"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 422
+
+
+def test_create_department_rejects_duplicate_categories(client, db, test_user, auth_headers):
+    db.add(Organization(id=test_user.organization_id, name="CoolTech"))
+    db.commit()
+
+    response = client.post(
+        "/api/v1/departments",
+        json={"name": "HR", "categories": ["Leave", " leave "]},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 422
+    assert db.query(Department).filter_by(name="HR").first() is None
 
 
 def test_cross_org_links_and_reads_are_rejected(client, db, test_user, auth_headers):
