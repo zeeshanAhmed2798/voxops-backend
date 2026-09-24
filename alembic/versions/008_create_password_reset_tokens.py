@@ -1,12 +1,11 @@
-"""Create refresh_tokens table
+"""Create password_reset_tokens table
 
-Revision ID: 005
-Revises: 004
+Revision ID: 006
+Revises: 005
 Create Date: 2026-09-23
 
-Stores refresh tokens for JWT-based authentication.
-Each token is linked to a user and expires after REFRESH_TOKEN_EXPIRE_DAYS.
-Tokens are single-use — revoked on refresh, logout, or expiry.
+Stores one-time password reset tokens for the forgot/reset password flow.
+Tokens expire after 1 hour and are single-use (is_used flag).
 
 To apply:    alembic upgrade head
 To roll back: alembic downgrade -1
@@ -18,15 +17,15 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 
-revision: str = "005"
-down_revision: Union[str, None] = "004"
+revision: str = "008"
+down_revision: Union[str, None] = "007"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
     op.create_table(
-        "refresh_tokens",
+        "password_reset_tokens",
         sa.Column(
             "id",
             postgresql.UUID(as_uuid=True),
@@ -40,34 +39,41 @@ def upgrade() -> None:
             postgresql.UUID(as_uuid=True),
             sa.ForeignKey("users.id", ondelete="CASCADE"),
             nullable=False,
-            comment="The user this token belongs to",
+            comment="The user requesting a password reset",
         ),
         sa.Column(
             "token",
-            sa.String(256),
+            sa.String(128),
             nullable=False,
             unique=True,
-            comment="The opaque refresh token string (128-char hex, 512-bit entropy)",
+            comment="URL-safe random token sent to user's email",
         ),
         sa.Column(
             "expires_at",
             sa.DateTime(timezone=True),
             nullable=False,
-            comment="When this refresh token expires",
+            comment="When this token expires (typically now + 1 hour)",
+        ),
+        sa.Column(
+            "is_used",
+            sa.Boolean(),
+            nullable=False,
+            server_default="false",
+            comment="True once the token has been used — prevents replay attacks",
         ),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
             nullable=False,
             server_default=sa.text("now()"),
-            comment="When this token was created (= login time)",
+            comment="When the reset was requested",
         ),
     )
-    op.create_index("ix_refresh_tokens_user_id", "refresh_tokens", ["user_id"])
-    op.create_index("ix_refresh_tokens_token", "refresh_tokens", ["token"], unique=True)
+    op.create_index("ix_password_reset_tokens_user_id", "password_reset_tokens", ["user_id"])
+    op.create_index("ix_password_reset_tokens_token", "password_reset_tokens", ["token"], unique=True)
 
 
 def downgrade() -> None:
-    op.drop_index("ix_refresh_tokens_token", table_name="refresh_tokens")
-    op.drop_index("ix_refresh_tokens_user_id", table_name="refresh_tokens")
-    op.drop_table("refresh_tokens")
+    op.drop_index("ix_password_reset_tokens_token", table_name="password_reset_tokens")
+    op.drop_index("ix_password_reset_tokens_user_id", table_name="password_reset_tokens")
+    op.drop_table("password_reset_tokens")

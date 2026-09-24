@@ -1,11 +1,12 @@
-"""Create password_reset_tokens table
+"""Create email_verification_tokens table
 
-Revision ID: 006
-Revises: 005
+Revision ID: 009
+Revises: 008
 Create Date: 2026-09-23
 
-Stores one-time password reset tokens for the forgot/reset password flow.
-Tokens expire after 1 hour and are single-use (is_used flag).
+Stores time-limited email verification tokens sent to users after registration.
+Users must click the link (which carries the token) to verify their email address.
+Tokens are single-use and expire after a configured duration.
 
 To apply:    alembic upgrade head
 To roll back: alembic downgrade -1
@@ -17,15 +18,15 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 
-revision: str = "006"
-down_revision: Union[str, None] = "005"
+revision: str = "011"
+down_revision: Union[str, None] = "010"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
     op.create_table(
-        "password_reset_tokens",
+        "email_verification_tokens",
         sa.Column(
             "id",
             postgresql.UUID(as_uuid=True),
@@ -39,41 +40,40 @@ def upgrade() -> None:
             postgresql.UUID(as_uuid=True),
             sa.ForeignKey("users.id", ondelete="CASCADE"),
             nullable=False,
-            comment="The user requesting a password reset",
+            comment="The user who needs to verify their email",
         ),
         sa.Column(
             "token",
-            sa.String(128),
+            sa.String(255),
             nullable=False,
             unique=True,
-            comment="URL-safe random token sent to user's email",
-        ),
-        sa.Column(
-            "expires_at",
-            sa.DateTime(timezone=True),
-            nullable=False,
-            comment="When this token expires (typically now + 1 hour)",
+            comment="The actual verification token sent to the user",
         ),
         sa.Column(
             "is_used",
             sa.Boolean(),
             nullable=False,
             server_default="false",
-            comment="True once the token has been used — prevents replay attacks",
+            comment="True if the token was already used",
+        ),
+        sa.Column(
+            "expires_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            comment="When this token expires",
         ),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
             nullable=False,
             server_default=sa.text("now()"),
-            comment="When the reset was requested",
         ),
     )
-    op.create_index("ix_password_reset_tokens_user_id", "password_reset_tokens", ["user_id"])
-    op.create_index("ix_password_reset_tokens_token", "password_reset_tokens", ["token"], unique=True)
+    op.create_index("ix_email_verification_tokens_user_id", "email_verification_tokens", ["user_id"])
+    op.create_index("ix_email_verification_tokens_token", "email_verification_tokens", ["token"], unique=True)
 
 
 def downgrade() -> None:
-    op.drop_index("ix_password_reset_tokens_token", table_name="password_reset_tokens")
-    op.drop_index("ix_password_reset_tokens_user_id", table_name="password_reset_tokens")
-    op.drop_table("password_reset_tokens")
+    op.drop_index("ix_email_verification_tokens_token", table_name="email_verification_tokens")
+    op.drop_index("ix_email_verification_tokens_user_id", table_name="email_verification_tokens")
+    op.drop_table("email_verification_tokens")
