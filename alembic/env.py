@@ -44,7 +44,10 @@ from app.models.token import RefreshToken  # noqa: F401
 config = context.config
 
 # Override the sqlalchemy.url in alembic.ini with our real DATABASE_URL from .env
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# ConfigParser uses ``%`` for interpolation. Database URLs commonly contain
+# percent-encoded password characters (for example, ``%40`` for ``@``), so
+# escape percent signs before handing the URL to Alembic's configuration.
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL.replace("%", "%%"))
 
 # Set up Python logging from the [loggers] section of alembic.ini
 if config.config_file_name is not None:

@@ -25,6 +25,39 @@ from app.modules.auth.router import router as auth_router
 from app.modules.users.router import router as users_router
 from app.modules.departments.router import router as departments_router
 from app.modules.jobs.router import router as jobs_router
+from app.modules.team_members.router import router as team_members_router
+
+
+OPENAPI_TAGS = [
+    {
+        "name": "Teams — Member Directory",
+        "description": "Search, invite, inspect, update, and deactivate organization members.",
+    },
+    {
+        "name": "Teams — Application Roles",
+        "description": "UUID-backed application roles available in the invite-member form.",
+    },
+    {
+        "name": "Departments — Directory",
+        "description": "List, create, edit, delete, and read complete department configuration.",
+    },
+    {
+        "name": "Departments — Categories",
+        "description": "Manage the request categories available inside a department.",
+    },
+    {
+        "name": "Departments — Roles",
+        "description": "Manage operational routing roles such as IT Support or HR Supervisor.",
+    },
+    {
+        "name": "Departments — Routing",
+        "description": "Route each request category to a department role and optional priority.",
+    },
+    {
+        "name": "Departments — Escalation",
+        "description": "Manage the unresolved-time threshold and escalation role for a department.",
+    },
+]
 
 
 # ── Create the FastAPI App ────────────────────────────────────────────────────
@@ -37,8 +70,7 @@ app = FastAPI(
 - **Jobs**: Field work, assignment, and status
 """,
     version="1.0.0",
-
-
+    openapi_tags=OPENAPI_TAGS,
 )
 
 register_exception_handlers(app)
@@ -66,6 +98,7 @@ app.include_router(auth_router, prefix="/api/v1", responses=ERROR_RESPONSES)
 app.include_router(users_router, prefix="/api/v1", responses=ERROR_RESPONSES)
 app.include_router(departments_router, prefix="/api/v1", responses=ERROR_RESPONSES)
 app.include_router(jobs_router, prefix="/api/v1", responses=ERROR_RESPONSES)
+app.include_router(team_members_router, prefix="/api/v1", responses=ERROR_RESPONSES)
 
 
 # ── Health Check ──────────────────────────────────────────────────────────────

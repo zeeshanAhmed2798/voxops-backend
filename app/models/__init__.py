@@ -1,17 +1,33 @@
-"""app/models package."""
+"""Import every ORM model so SQLAlchemy's shared metadata is complete.
 
-from app.models.user import User, UserRole, UserStatus
+Importing any ``app.models`` submodule first executes this package module. That
+ensures string-based foreign keys such as ``organizations.id`` can always be
+resolved, regardless of which API router happens to load first.
+"""
+
 from app.models.organization import Organization
-from app.models.department import Department
+from app.models.user import AppRole, User, UserRole, UserStatus
+from app.models.department import (
+    Department,
+    DepartmentCategory,
+    DepartmentEscalationPolicy,
+    DepartmentRole,
+    DepartmentRoutingRule,
+)
 from app.models.job import Job
 from app.models.token import RefreshToken
 
 __all__ = [
+    "Organization",
     "User",
+    "AppRole",
     "UserRole",
     "UserStatus",
-    "Organization",
     "Department",
+    "DepartmentCategory",
+    "DepartmentRole",
+    "DepartmentRoutingRule",
+    "DepartmentEscalationPolicy",
     "Job",
     "RefreshToken",
 ]

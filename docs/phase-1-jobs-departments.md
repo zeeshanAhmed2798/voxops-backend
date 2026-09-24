@@ -53,11 +53,19 @@ All paths start with `/api/v1`. Protected calls need `Authorization: Bearer <acc
 
 | Method | Path | Who | What it does |
 |---|---|---|---|
-| GET | `/departments` | Signed-in member | List their organization's departments. |
+| GET | `/departments?limit=20&cursor=...` | Signed-in member | Cursor-paginated department directory; every item includes its categories. |
 | POST | `/departments` | Org admin | Add a department. |
 | GET | `/departments/{id}` | Signed-in member | Read one department. |
 | PUT | `/departments/{id}` | Org admin | Replace its name and description. |
 | DELETE | `/departments/{id}` | Org admin | Delete only if no Jobs or users reference it. |
+| GET | `/departments/{id}/configuration` | Signed-in member | Return the department, categories, operational roles, routing rules, and escalation policy for the management screen. |
+| GET/POST | `/departments/{id}/categories` | Member/Admin | List or create request categories. |
+| PUT/DELETE | `/departments/{id}/categories/{category_id}` | Org admin | Rename/activate or delete a category. Referenced categories cannot be deleted. |
+| GET/POST | `/departments/{id}/roles` | Member/Admin | List or create department-specific operational roles. |
+| PUT/DELETE | `/departments/{id}/roles/{role_id}` | Org admin | Edit/activate or delete an operational role. Referenced roles cannot be deleted. |
+| GET/POST | `/departments/{id}/routing-rules` | Member/Admin | List or route a category to one department role with an optional priority override. |
+| PUT/DELETE | `/departments/{id}/routing-rules/{rule_id}` | Org admin | Replace or delete a routing rule. |
+| GET/PUT/DELETE | `/departments/{id}/escalation` | Member/Admin | Read, upsert, or remove the department's single time-based escalation policy. |
 | GET | `/jobs` | Signed-in member | List their organization's Jobs. Optional `status`, `department_id`, `assigned_to_me` filters. |
 | POST | `/jobs` | Org admin or supervisor | Create and assign a Job. Starts as `ASSIGNED`. |
 | GET | `/jobs/{id}` | Signed-in member | Read Job detail fields. |
@@ -81,6 +89,29 @@ Every endpoint, including login and profile, now returns this envelope:
 ```
 
 `data` is omitted when there is nothing useful to return (for example logout or department deletion). Login tokens now live at `response.data.access_token`; a list lives at `response.data`.
+
+Cursor-paginated endpoints put the records in `data.items`. Pass the returned opaque
+`data.next_cursor` unchanged to fetch the next page. A department page has this shape:
+
+```json
+{
+  "success": true,
+  "message": "Departments retrieved successfully.",
+  "data": {
+    "items": [
+      {
+        "id": "...",
+        "name": "IT",
+        "description": "Technical support for employees.",
+        "categories": [{"id": "...", "name": "Hardware", "is_active": true}]
+      }
+    ],
+    "next_cursor": "opaque-value",
+    "has_more": true,
+    "limit": 20
+  }
+}
+```
 
 Errors use the same keys with `success: false`, the appropriate HTTP code, and a safe message. Validation errors have optional `data` containing `{field, message}` items. Expected errors map to 400/401/403/404/409/422. Database availability errors map to 503. Truly unexpected server faults still use HTTP 500, but return only a safe envelope while the detail is logged on the server. Returning a false 2xx or 4xx for a server fault would hide the failure from clients and monitoring.
 
@@ -107,6 +138,12 @@ Errors use the same keys with `success: false`, the appropriate HTTP code, and a
 
 6. Try `GET /api/v1/jobs?status=ASSIGNED`, `GET /api/v1/jobs/{id}`, and `PATCH /api/v1/jobs/{id}/status` with `{"status":"IN_PROGRESS"}`.
 
+## Complete department configuration
+
+`DepartmentRole` is an operational routing label such as `IT Support` or `IT Supervisor`; it is deliberately separate from the account authorization enum (`ORG_ADMIN`, `EMPLOYEE`, and so on). A category belongs to one department. A routing rule connects one category to one role in that same department and may override priority with `LOW`, `NORMAL`, or `HIGH`. Each department has at most one escalation policy, which specifies the unresolved-hours threshold and escalation role.
+
+`seed_dev.py` idempotently creates ten development departments with five categories each, operational roles, one route per category, and one escalation policy. It can be rerun without creating duplicates.
+
 ## What comes next
 
-Phase 1 covers the list/cards, core Job details, department list, creation, editing, assignment, and status. The design's service report, activity timeline, request categories, routing rules, escalation automation, AI context, and PDF export need separate tables and endpoints. Build service reports and activity next, then department routing; their data and behavior should be agreed with the frontend team before implementation.
+Department configuration storage and CRUD are now implemented. The next workflow layer is employee requests: create a request with a category, apply its routing rule and priority, assign it to members holding the operational role (after a Team/member-role assignment model exists), and run escalation when the configured deadline passes. Service reports, job activity, AI context, and PDF export remain separate future work.
