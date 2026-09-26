@@ -25,6 +25,7 @@ from app.models.user import User
 from app.modules.auth import service
 from app.schemas.auth import (
     LoginRequest,
+    RefreshRequest,
     TokenResponse,
     ChangePasswordRequest,
 )
@@ -47,7 +48,7 @@ router = APIRouter(
     summary="Login with email and password",
     description=(
         "Authenticate with your email and password. "
-        "Returns a JWT bearer token. Include this token in subsequent requests "
+        "Returns access_token and refresh_token. Include access_token in subsequent requests "
         "as: `Authorization: Bearer <token>`"
     ),
 )
@@ -57,6 +58,22 @@ def login(
 ) -> BaseResponse[TokenResponse]:
     """POST /api/v1/auth/login"""
     return ok("Login successful.", service.authenticate_user(db=db, request=request))
+
+
+@router.post(
+    "/refresh",
+    response_model=BaseResponse[TokenResponse],
+    response_model_exclude_none=True,
+    status_code=status.HTTP_200_OK,
+    summary="Refresh access token",
+    description="Provide a valid refresh_token to issue a new access_token and refresh_token pair.",
+)
+def refresh_token(
+    request: RefreshRequest,
+    db: Session = Depends(get_db),
+) -> BaseResponse[TokenResponse]:
+    """POST /api/v1/auth/refresh"""
+    return ok("Tokens refreshed successfully.", service.refresh_tokens_flow(db=db, request=request))
 
 
 @router.get(

@@ -112,8 +112,16 @@ app.include_router(team_members_router, prefix="/api/v1", responses=ERROR_RESPON
     summary="Health check",
     description="Simple health check endpoint. Returns a confirmation that the server is running.",
 )
+@app.get(
+    "/health",
+    response_model=BaseResponse[dict],
+    response_model_exclude_none=True,
+    responses=ERROR_RESPONSES,
+    tags=["Health"],
+    summary="Health check alias",
+)
 def root() -> BaseResponse[dict]:
-    """GET / — health check"""
+    """GET / and GET /health — health check"""
     return ok("VoxOps Backend is running", {
         "version": "1.0.0",
         "docs": "http://127.0.0.1:8000/docs",

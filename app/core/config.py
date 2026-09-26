@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     JWT_SECRET: str           # Long random string — keep secret!
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    # --- Email & Auth Options ---
+    FRONTEND_ORIGIN: str = "http://localhost:3000"
+    RESEND_API_KEY: str = "re_placeholder"
+    RESEND_FROM_EMAIL: str = "noreply@example.com"
+    REQUIRE_EMAIL_VERIFICATION: bool = False
 
     # --- App ---
     APP_ENV: str = "development"
@@ -35,6 +42,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=True,
+        extra="ignore",
     )
 
 

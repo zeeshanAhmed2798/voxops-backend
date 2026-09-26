@@ -15,6 +15,7 @@ from app.models.department import (
     DepartmentRoutingRule,
 )
 from app.models.job import Job
+from app.models.token import RefreshToken
 
 __all__ = [
     "Organization",
@@ -28,4 +29,5 @@ __all__ = [
     "DepartmentRoutingRule",
     "DepartmentEscalationPolicy",
     "Job",
+    "RefreshToken",
 ]

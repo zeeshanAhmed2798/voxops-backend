@@ -1,11 +1,9 @@
-"""Minimal organization anchor for department and job ownership."""
+"""Organization model."""
 
 import uuid
 from datetime import datetime
 
-# pyrefly: ignore [missing-import]
 from sqlalchemy import DateTime, String, func
-# pyrefly: ignore [missing-import]
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -24,7 +22,6 @@ class Organization(Base):
     )
     # Human-readable name for the workspace and administrator screens.
     name: Mapped[str] = mapped_column(String(255), nullable=False, comment="Organization display name")
-    # Creation time supports audit and future organization lifecycle work.
+    slug: Mapped[str | None] = mapped_column(String(100), unique=True, nullable=True, index=True, comment="URL-safe unique identifier")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), comment="When this organization was created")
-    # Last change time supports audit and cache refresh.
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now(), comment="When this organization was last changed")

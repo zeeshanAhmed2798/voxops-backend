@@ -53,3 +53,11 @@ Thumbs.db
 *.log
 logs/
 test_voxops.db
+
+# Temporary scripts
+check_ci.py
+fix_migrations.py
+get_logs.py
+test_seeded_users.py
+verify_seed.py
+

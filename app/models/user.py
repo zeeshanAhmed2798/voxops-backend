@@ -172,6 +172,14 @@ class User(Base):
         comment="Account status — only ACTIVE users can log in",
     )
 
+    is_email_verified: Mapped[bool] = mapped_column(
+        Boolean(),
+        nullable=False,
+        default=False,
+        server_default="false",
+        comment="Whether the user's email has been verified",
+    )
+
     # ── Profile Fields ────────────────────────────────────────────────────────
     job_title: Mapped[str | None] = mapped_column(
         String(150),

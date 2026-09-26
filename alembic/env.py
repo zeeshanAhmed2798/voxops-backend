@@ -20,8 +20,7 @@ import os
 import sys
 from logging.config import fileConfig
 
-# pyrefly: ignore [missing-import]
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import create_engine, pool
 from alembic import context
 
 # ── Make the 'app' package importable ────────────────────────────────────────
@@ -38,6 +37,7 @@ from app.models.user import User          # noqa: F401 — imported for side eff
 from app.models.organization import Organization  # noqa: F401
 from app.models.department import Department  # noqa: F401
 from app.models.job import Job  # noqa: F401
+from app.models.token import RefreshToken  # noqa: F401
 
 
 # ── Alembic Config ─────────────────────────────────────────────────────────
@@ -81,11 +81,7 @@ def run_migrations_online() -> None:
     Run migrations in 'online' mode (connects to DB and applies changes).
     This is the normal mode used by `alembic upgrade head`.
     """
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    connectable = create_engine(settings.DATABASE_URL, poolclass=pool.NullPool)
     with connectable.connect() as connection:
         context.configure(
             connection=connection,

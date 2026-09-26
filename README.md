@@ -253,24 +253,25 @@ python -m alembic current
 
 ---
 
-## 8. Create Test User
+## 8. Create Test Users & Roles
 
-### Step 9 — Seed the development database
+### Step 9 — Seed the database with role-based test accounts
 
 ```powershell
-python seed_dev.py
+python seed_users.py
+# or
+python -m app.db.seed
 ```
 
-This creates a test user you can log in with:
+This seeds the database idempotently with a sample organization ("Acme Corp") and pre-verified test users across different roles:
 
-| Field | Value |
-|---|---|
-| Email | jane@example.com |
-| Password | ChangeMe123! |
-| Role | ORG_ADMIN |
-| Status | ACTIVE |
+| Email | Password | Role | Organization |
+|---|---|---|---|
+| `superadmin@voxops.com` | `SuperAdmin123!` | `SUPER_ADMIN` | N/A |
+| `admin@acme.com` | `AdminPass123!` | `ORG_ADMIN` | Acme Corp |
+| `bob@acme.com` | `MemberPass123!` | `EMPLOYEE` | Acme Corp |
 
-> ⚠️ This script is for **development only**. Change the password after first login using the change-password API.
+> ⚠️ These accounts are set with `is_email_verified = true` and `status = ACTIVE` so you can log in immediately for role-based authorization testing.
 
 ---
 
@@ -297,7 +298,8 @@ The `--reload` flag means the server restarts automatically whenever you edit a 
 | Method | URL | Auth Required | Description |
 |---|---|---|---|
 | GET | `/` | No | Health check |
-| POST | `/api/v1/auth/login` | No | Login, get JWT token |
+| POST | `/api/v1/auth/login` | No | Login, get access & refresh tokens |
+| POST | `/api/v1/auth/refresh` | No | Obtain new access token via refresh token |
 | GET | `/api/v1/auth/me` | Yes | Get current user |
 | POST | `/api/v1/auth/logout` | Yes | Logout (client-side) |
 | POST | `/api/v1/auth/change-password` | Yes | Change own password |
